@@ -1,13 +1,12 @@
 {
-    "domain": "deye_ew11",
-    "name": "Deye EW11 Inverter",
-    "version": "1.0.1",
-    "codeowners": [
-        "@yourname"
-    ],
-    "documentation": "https://github.com/yourname/deye_ew11",
-    "iot_class": "local_polling",
-    "requirements": [],
-    "dependencies": [],
-    "config_flow": true
+  "domain": "deye_ew11",
+  "name": "Deye EW11 Inverter",
+  "version": "1.0.1",
+  "codeowners": ["@byrsapty"],
+  "documentation": "https://github.com/byrsapty/zotac-deye-monitor",
+  "issue_tracker": "https://github.com/byrsapty/zotac-deye-monitor/issues",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "dependencies": [],
+  "config_flow": true
 }
