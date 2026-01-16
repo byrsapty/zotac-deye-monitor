@@ -1,4 +1,7 @@
-# Deye EW11 - Home Assistant Integration
+<div align="center">
+  <img src=".github/logo.png" alt="Deye EW11 Logo" width="200"/>
+  <h1>Deye EW11 - Home Assistant Integration</h1>
+</div>
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/release/byrsapty/zotac-deye-monitor.svg)](https://github.com/byrsapty/zotac-deye-monitor/releases)
