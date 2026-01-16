@@ -205,22 +205,51 @@ class DeyeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 data["pv2_power"] = regs_live[37]
                 data["pv_power"] = data["pv1_power"] + data["pv2_power"]
 
-                # Validation
+                # Enhanced validation to prevent garbage values
                 is_valid = True
-                if data["battery_temp"] < -40 or data["battery_temp"] > 100:
+                validation_errors = []
+                
+                # Battery SOC: 0-100% (allow 105% for small overcharge)
+                if data["battery_soc"] < 0 or data["battery_soc"] > 105:
                     is_valid = False
-                    _LOGGER.warning("Invalid battery temp: %.1f", data["battery_temp"])
-                if data["battery_soc"] > 105:
+                    validation_errors.append(f"SOC={data['battery_soc']}%")
+                
+                # Battery Voltage: 40-60V typical for 48V systems
+                if data["battery_voltage"] < 35 or data["battery_voltage"] > 65:
                     is_valid = False
-                    _LOGGER.warning("Invalid SOC: %d", data["battery_soc"])
+                    validation_errors.append(f"Voltage={data['battery_voltage']}V")
+                
+                # Battery Temperature: -20 to +60°C realistic range
+                if data["battery_temp"] < -25 or data["battery_temp"] > 70:
+                    is_valid = False
+                    validation_errors.append(f"Temp={data['battery_temp']}°C")
+                
+                # Grid Voltage: 180-260V for 230V systems (excluding 0)
+                if data["grid_voltage"] > 0 and (data["grid_voltage"] < 170 or data["grid_voltage"] > 270):
+                    is_valid = False
+                    validation_errors.append(f"GridV={data['grid_voltage']}V")
+                
+                # Power values: -50kW to +50kW reasonable limits
+                for key in ["battery_power", "grid_power", "load_power", "pv_power"]:
+                    if abs(data[key]) > 50000:
+                        is_valid = False
+                        validation_errors.append(f"{key}={data[key]}W")
 
                 if is_valid:
                     data["connected"] = True
-                    _LOGGER.info("✅ Data OK: SOC=%d%%, PV=%dW, Grid=%dW, Load=%dW", 
-                                data["battery_soc"], data["pv_power"], data["grid_power"], data["load_power"])
+                    _LOGGER.info("✅ Data OK: SOC=%d%%, Bat=%.2fV, PV=%dW, Grid=%dW, Load=%dW", 
+                                data["battery_soc"], data["battery_voltage"], 
+                                data["pv_power"], data["grid_power"], data["load_power"])
                 else:
-                    _LOGGER.warning("Data validation failed, using partial data")
-                    data["connected"] = True  # Still show partial data
+                    _LOGGER.error("❌ Invalid data detected: %s - Using cached data if available", 
+                                 ", ".join(validation_errors))
+                    # Return last good data if available, otherwise disconnected
+                    if self._last_good_data:
+                        _LOGGER.warning("Returning last valid cached data instead of garbage")
+                        return self._last_good_data.copy()
+                    else:
+                        _LOGGER.warning("No cache available, returning disconnected")
+                        return {"connected": False}
 
             return data
 
