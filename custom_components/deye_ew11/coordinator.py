@@ -1,0 +1,257 @@
+"""Coordinator with enhancements but KEEPING working Modbus code!"""
+from __future__ import annotations
+
+import logging
+from datetime import timedelta
+from pathlib import Path
+from typing import Any
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_HOST, CONF_PORT
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+
+from .const import (
+    CONF_INVERTER_TYPE,
+    CONF_SLAVE_ID,
+    CONF_UPDATE_INTERVAL,
+    CONF_USE_CACHE,
+    CONF_MAX_CACHE_AGE,
+    DEFAULT_UPDATE_INTERVAL,
+    DEFAULT_USE_CACHE,
+    DEFAULT_MAX_CACHE_AGE,
+    DOMAIN,
+    MODBUS_TIMEOUT,
+)
+from .modbus_client import ModbusClient
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class DeyeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
+    """Coordinator with hybrid YAML support."""
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        """Initialize the coordinator."""
+        self.entry = entry
+        self.host = entry.data.get(CONF_HOST, "192.168.1.103")
+        self.port = entry.data.get(CONF_PORT, 502)
+        self.slave_id = entry.data.get(CONF_SLAVE_ID, 1)
+        self.inverter_type = entry.data.get(CONF_INVERTER_TYPE, "deye_hybrid")
+        self.update_interval_seconds = entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
+        self.use_cache = entry.data.get(CONF_USE_CACHE, DEFAULT_USE_CACHE)
+        self.max_cache_age = entry.data.get(CONF_MAX_CACHE_AGE, DEFAULT_MAX_CACHE_AGE)
+        
+        # Cache for last known good data
+        self._last_good_data: dict[str, Any] | None = None
+        self._failed_updates = 0
+
+        # Initialize Modbus client (using 1.2s timeout as proven working)
+        self.modbus_client = ModbusClient(
+            host=self.host,
+            port=self.port,
+            slave_id=self.slave_id,
+            timeout=1.2,
+        )
+        
+        # Hardcoded mode only for v1.0
+        self.use_hardcoded = True
+        
+        _LOGGER.info(
+            "Coordinator init: %s:%s (Type: %s, Data: Hardcoded, Cache: %s)",
+            self.host, self.port, self.inverter_type, self.use_cache
+        )
+
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=f"{DOMAIN}_{entry.entry_id}",
+            update_interval=timedelta(seconds=self.update_interval_seconds),
+        )
+        
+        _LOGGER.info(
+            "Coordinator init: %s:%s (Type: %s, Mode: %s, Update: %ds)",
+            self.host, self.port, self.inverter_type,
+            "Hardcoded" if self.use_hardcoded else "YAML",
+            self.update_interval_seconds
+        )
+
+    def _to_signed(self, val: int) -> int:
+        """Convert uint16 to int16."""
+        if val > 32767:
+            return val - 65536
+        return val
+
+    async def _async_update_data(self) -> dict[str, Any]:
+        """Fetch data from inverter with smart caching."""
+        try:
+            # Try to get fresh data
+            if self.use_hardcoded:
+                data = await self._update_hardcoded()
+            else:
+                data = await self._update_from_yaml()
+            
+            # If successful, cache it and reset fail counter
+            if data.get("connected"):
+                self._last_good_data = data.copy()
+                self._failed_updates = 0
+                return data
+            
+            # If failed but we have cache enabled and recent data
+            if self.use_cache and self._last_good_data and self._failed_updates < self.max_cache_age:
+                self._failed_updates += 1
+                _LOGGER.warning("Using cached data (failed updates: %d/%d)", self._failed_updates, self.max_cache_age)
+                cached = self._last_good_data.copy()
+                cached["connected"] = True  # Show as connected but with stale data
+                cached["_cache_age"] = self._failed_updates  # Internal marker
+                return cached
+            
+            # Too many failures - show truly disconnected
+            self._failed_updates += 1
+            _LOGGER.error("Truly disconnected: %d failed updates", self._failed_updates)
+            return {"connected": False}
+            
+        except Exception as err:
+            _LOGGER.error("Update error: %s", err, exc_info=True)
+            if self.use_cache and self._last_good_data and self._failed_updates < self.max_cache_age:
+                self._failed_updates += 1
+                return self._last_good_data.copy()
+            return {"connected": False}
+
+    async def _update_hardcoded(self) -> dict[str, Any]:
+        """Update using hardcoded logic - PROVEN WORKING!"""
+        data = {
+            "connected": False,
+            "grid_voltage": 0.0,
+            "grid_freq": 0.0,
+            "load_freq": 0.0,
+            "grid_power": 0,
+            "load_power": 0,
+            "battery_voltage": 0.0,
+            "battery_soc": 0,
+            "battery_power": 0,
+            "battery_current": 0.0,
+            "battery_temp": 0.0,
+            "dc_temp": 0.0,
+            "ac_temp": 0.0,
+            "pv_power": 0,
+            "pv1_power": 0,
+            "pv2_power": 0,
+            "pv1_voltage": 0.0,
+            "pv1_current": 0.0,
+            "pv2_voltage": 0.0,
+            "pv2_current": 0.0,
+            "inverter_current": 0.0,
+            "day_battery_charge": 0.0,
+            "day_battery_discharge": 0.0,
+            "day_grid_import": 0.0,
+            "day_grid_export": 0.0,
+            "day_load_energy": 0.0,
+            "day_pv_energy": 0.0,
+        }
+
+        try:
+            # Connect
+            if not await self.modbus_client.connect():
+                _LOGGER.warning("Failed to connect to %s:%s", self.host, self.port)
+                return data
+
+            # Read Block 1 (60-115) - WORKING!
+            regs_energy = await self.modbus_client.read_holding_registers(60, 55)
+            
+            # Read Block 2 (150-196) - WORKING!
+            regs_live = await self.modbus_client.read_holding_registers(150, 46)
+
+            # Disconnect
+            await self.modbus_client.disconnect()
+
+            # Parse Block 1
+            if regs_energy and len(regs_energy) >= 53:
+                data["grid_freq"] = round(regs_energy[19] * 0.01, 2)
+                data["day_battery_charge"] = round(regs_energy[10] * 0.1, 1)
+                data["day_battery_discharge"] = round(regs_energy[11] * 0.1, 1)
+                data["day_grid_import"] = round(regs_energy[16] * 0.1, 1)
+                data["day_grid_export"] = round(regs_energy[17] * 0.1, 1)
+                data["day_load_energy"] = round(regs_energy[24] * 0.1, 1)
+                data["dc_temp"] = round((regs_energy[30] - 1000) / 10.0, 1)
+                data["ac_temp"] = round((regs_energy[31] - 1000) / 10.0, 1)
+                data["day_pv_energy"] = round(regs_energy[48] * 0.1, 1)
+                data["pv1_voltage"] = round(regs_energy[49] * 0.1, 1)
+                data["pv1_current"] = round(regs_energy[50] * 0.1, 1)
+                data["pv2_voltage"] = round(regs_energy[51] * 0.1, 1)
+                data["pv2_current"] = round(regs_energy[52] * 0.1, 1)
+
+            # Parse Block 2
+            if regs_live and len(regs_live) >= 44:
+                data["load_freq"] = round(regs_live[43] * 0.01, 2)
+                
+                raw_voltage = round(regs_live[0] * 0.1, 1)
+                data["grid_voltage"] = 0.0 if raw_voltage < 50 else raw_voltage
+                
+                data["grid_power"] = self._to_signed(regs_live[19])
+                data["load_power"] = regs_live[28]
+                data["inverter_current"] = round(self._to_signed(regs_live[14]) * 0.01, 2)
+                
+                # Generator (Register 166 = 0xA6)
+                data["gen_power"] = self._to_signed(regs_live[16])
+                
+                data["battery_temp"] = round((regs_live[32] - 1000) / 10.0, 1)
+                data["battery_voltage"] = regs_live[33] * 0.01
+                data["battery_soc"] = regs_live[34]
+                data["battery_power"] = self._to_signed(regs_live[40])
+                data["battery_current"] = round(self._to_signed(regs_live[41]) * 0.01, 2)
+                
+                data["pv1_power"] = regs_live[36]
+                data["pv2_power"] = regs_live[37]
+                data["pv_power"] = data["pv1_power"] + data["pv2_power"]
+
+                # Validation
+                is_valid = True
+                if data["battery_temp"] < -40 or data["battery_temp"] > 100:
+                    is_valid = False
+                    _LOGGER.warning("Invalid battery temp: %.1f", data["battery_temp"])
+                if data["battery_soc"] > 105:
+                    is_valid = False
+                    _LOGGER.warning("Invalid SOC: %d", data["battery_soc"])
+
+                if is_valid:
+                    data["connected"] = True
+                    _LOGGER.info("✅ Data OK: SOC=%d%%, PV=%dW, Grid=%dW, Load=%dW", 
+                                data["battery_soc"], data["pv_power"], data["grid_power"], data["load_power"])
+                else:
+                    _LOGGER.warning("Data validation failed, using partial data")
+                    data["connected"] = True  # Still show partial data
+
+            return data
+
+        except Exception as err:
+            _LOGGER.error("Error updating: %s", err, exc_info=True)
+            try:
+                await self.modbus_client.disconnect()
+            except:
+                pass
+            return {"connected": False}
+
+    async def async_shutdown(self) -> None:
+        """Shutdown the coordinator."""
+        await self.modbus_client.disconnect()
+    
+    async def async_config_entry_updated(self) -> None:
+        """Handle config updates."""
+        new_interval = self.entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
+        if new_interval != self.update_interval_seconds:
+            _LOGGER.info("Update interval changed: %ds -> %ds", self.update_interval_seconds, new_interval)
+            self.update_interval_seconds = new_interval
+            self.update_interval = timedelta(seconds=new_interval)
+
+    @property
+    def device_info(self) -> dict[str, Any]:
+        """Return device information."""
+        return {
+            "identifiers": {(DOMAIN, self.entry.entry_id)},
+            "name": self.entry.title,
+            "manufacturer": "Deye",
+            "model": "Hybrid Inverter (EW11)",
+            "sw_version": "1.0.1",
+            "configuration_url": f"http://{self.host}",
+        }

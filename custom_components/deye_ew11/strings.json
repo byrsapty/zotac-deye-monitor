@@ -1,0 +1,53 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Configure Deye EW11",
+                "description": "Enter connection details for your Deye inverter.",
+                "data": {
+                    "name": "Name",
+                    "host": "IP Address",
+                    "port": "Port",
+                    "slave_id": "Slave ID",
+                    "inverter_type": "Inverter Model",
+                    "battery_capacity": "Battery Capacity (kWh)",
+                    "update_interval": "Update Interval (sec)",
+                    "use_cache": "Enable Data Caching",
+                    "max_cache_age": "Max Retry Attempts"
+                },
+                "data_description": {
+                    "host": "The IP address of your EW11 dongle (e.g. 192.168.1.103)",
+                    "slave_id": "Modbus Slave ID (usually 1)",
+                    "battery_capacity": "Total battery capacity in kWh used for SOC calculations",
+                    "update_interval": "How often to fetch data from the inverter (1-60 seconds)",
+                    "use_cache": "Keep showing the last successful data if the connection fails temporarily",
+                    "max_cache_age": "Number of failed updates before marking the entity as 'Disconnected'"
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Settings",
+                "data": {
+                    "name": "Name",
+                    "host": "IP Address",
+                    "port": "Port",
+                    "slave_id": "Slave ID",
+                    "inverter_type": "Inverter Model",
+                    "battery_capacity": "Battery Capacity (kWh)",
+                    "update_interval": "Update Interval (sec)",
+                    "use_cache": "Enable Data Caching",
+                    "max_cache_age": "Max Retry Attempts"
+                },
+                "data_description": {
+                    "battery_capacity": "Total battery capacity in kWh",
+                    "update_interval": "Frequency of data updates in seconds",
+                    "use_cache": "Show old data instead of 'Unavailable' during glitches",
+                    "max_cache_age": "Retries before giving up"
+                }
+            }
+        }
+    }
+}

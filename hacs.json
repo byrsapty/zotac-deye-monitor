@@ -1,0 +1,7 @@
+{
+    "name": "Deye EW11 Inverter",
+    "render_readme": true,
+    "filename": "deye_ew11.zip",
+    "homeassistant": "2024.1.0",
+    "iot_class": "local_polling"
+}
