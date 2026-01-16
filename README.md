@@ -1,65 +1,172 @@
-# Deye EW11 Home Assistant Integration
+# Deye EW11 - Home Assistant Integration
 
-Custom integration to monitor **Deye Hybrid Inverters** via the **EW11 WiFi stick** (Modbus TCP).
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
+[![GitHub Release](https://img.shields.io/github/release/byrsapty/zotac-deye-monitor.svg)](https://github.com/byrsapty/zotac-deye-monitor/releases)
+[![License](https://img.shields.io/github/license/byrsapty/zotac-deye-monitor.svg)](LICENSE)
 
-## Features
+Інтеграція для моніторингу **гібридних інверторів Deye** через **WiFi донгл EW11** (Modbus TCP).
+Розроблена для стабільної роботи з акцентом на точність даних та зручність використання.
 
-- 🔌 **Stable Connection:** Optimized Modbus TCP with 1.2s timeout and auto-reconnect.
-- 💾 **Smart Caching:** Prevents "Unavailable" during WiFi glitches by showing cached data.
-- ⚡ **Accurate Sensors:** Precise battery voltage (52.64V), generator power, and more.
-- 🔋 **Smart Battery Runtime:**
-  - **Charging:** Shows "Time to Full".
-  - **Discharging:** Shows "Time to Empty".
-  - **Format:** "14 год 46 хв" or "45 хв" (auto-formats based on duration).
-- ⚙️ **Configurable:** Update interval, caching, battery capacity via UI.
+---
 
-## Installation (HACS)
+## ✨ Особливості
 
-1. **HACS** -> **Integrations** -> **3 dots** -> **Custom repositories**.
-2. Add URL: `https://github.com/YOUR_USERNAME/zotac-deye-monitor`
-3. Category: **Integration** -> **Add**.
-4. Find "Deye EW11" and install.
-5. Restart Home Assistant.
+- 🔌 **Стабільне підключення:** Оптимізовані таймаути Modbus (1.2s) та автоматичне перепідключення
+- 💾 **Розумне кешування:** При короткочасних збоях WiFi показує останні успішні дані замість "Unavailable"
+- ⚡ **Точні дані:** Напруга батареї з точністю до сотих (52.64V), потужність генератора
+- 🔋 **Розумний розрахунок часу роботи:**
+  - **При зарядці:** Показує час до повного заряду
+  - **При розрядці:** Показує час до повного розряду
+  - **Формат:** Автоматично "14 год 46 хв" або "45 хв"
+- ⚙️ **Налаштування через UI:** Інтервал оновлення, кешування, ємність батареї
+- 🌍 **Мультимовність:** Повна підтримка української та англійської мов
 
-## Manual Installation
+---
 
-1. Download `custom_components/deye_ew11` folder.
-2. Copy to `config/custom_components/`.
-3. Restart Home Assistant.
+## 📊 Сенсори (24+)
 
-## Configuration
+### 🔋 Батарея
+- **SOC** (%, точний відсоток заряду)
+- **Напруга** (V, з точністю 0.01V)
+- **Струм** (A)
+- **Потужність** (W, + заряд, - розряд)
+- **Температура** (°C)
+- **Час роботи** (розумний формат "X год Y хв")
+- **Залишок енергії** (kWh)
 
-1. **Settings** -> **Devices & Services** -> **Add Integration** -> **Deye EW11**.
-2. Enter:
-   - **IP Address:** EW11 dongle IP (e.g., 192.168.1.103).
-   - **Port:** 502 or 8899.
-   - **Slave ID:** Usually 1.
-   - **Battery Capacity:** Total kWh (for runtime calculation).
+### ☀️ Сонячні панелі (PV)
+- **Потужність PV1/PV2** (W)
+- **Напруга PV1/PV2** (V)
+- **Струм PV1/PV2** (A)
+- **Загальна потужність PV** (W)
 
-### Options
+### 🏠 Навантаження та мережа
+- **Потужність навантаження** (W)
+- **Потужність мережі** (W, + споживання, - віддача)
+- **Напруга мережі** (V)
+- **Частота мережі** (Hz)
 
-Click **Configure** to adjust:
-- **Update Interval:** Data polling frequency (5-10s recommended).
-- **Cache Data:** Smooth out connection drops.
-- **Max Retries:** Failed updates before showing "Disconnected".
+### ⚙️ Генератор
+- **Потужність генератора** (W)
+- **Статус генератора** (Running/Stopped)
 
-## Verified Models
+### 📈 Денна статистика
+- День: Заряд батареї (kWh)
+- День: Розряд батареї (kWh)
+- День: Імпорт з мережі (kWh)
+- День: Експорт в мережу (kWh)
+- День: Споживання будинку (kWh)
+- День: Вироблено PV (kWh)
 
-- Deye SUN-5K-SG03LP1-EU
-- Deye SUN-10K-SG04LP3-EU (and similar Hybrid models)
+---
 
-## Git Repository Setup
+## 📦 Встановлення
 
-To upload this integration to GitHub:
+### Спосіб 1: Через HACS (Рекомендовано)
 
-```bash
-cd D:\РОБОТА\Scripts\new_projects_bot\zotac-deye-monitor
-git init
-git add .
-git commit -m "Initial release v1.0.1"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/zotac-deye-monitor.git
-git push -u origin main
-```
+1. Відкрийте **HACS** в Home Assistant
+2. Перейдіть в розділ **Integrations**
+3. Натисніть **три крапки (⋮)** → **Custom repositories**
+4. Додайте репозиторій:
+   ```
+   https://github.com/byrsapty/zotac-deye-monitor
+   ```
+5. **Category:** `Integration`
+6. Натисніть **ADD**
+7. Знайдіть **Deye EW11 Inverter** в списку та натисніть **DOWNLOAD**
+8. **Перезапустіть Home Assistant**
 
-Replace `YOUR_USERNAME` with your GitHub username.
+### Спосіб 2: Вручну
+
+1. Завантажте [останню версію](https://github.com/byrsapty/zotac-deye-monitor/releases)
+2. Розпакуйте архів
+3. Скопіюйте папку `custom_components/deye_ew11` в:
+   ```
+   /config/custom_components/deye_ew11
+   ```
+4. Перезапустіть Home Assistant
+
+---
+
+## ⚙️ Налаштування
+
+### Перше підключення
+
+1. Перейдіть: **Settings** → **Devices & Services**
+2. Натисніть **+ ADD INTEGRATION**
+3. Знайдіть **Deye EW11**
+4. Введіть параметри:
+
+   | Параметр | Значення | Примітка |
+   |----------|----------|----------|
+   | **IP адреса** | `192.168.1.103` | IP вашого EW11 донгла |
+   | **Порт** | `502` або `8899` | Зазвичай 502 для Modbus TCP |
+   | **Slave ID** | `1` | Зазвичай 1 для Deye |
+   | **Ємність батареї** | `10.24` | Загальна ємність в kWh |
+   | **Інтервал оновлення** | `5` | Секунди (рекомендовано 5-10) |
+
+5. Натисніть **SUBMIT**
+
+### Додаткові налаштування
+
+Після додавання інтеграції ви можете змінити параметри:
+
+1. Перейдіть в **Settings** → **Devices & Services** → **Deye EW11**
+2. Натисніть **CONFIGURE**
+3. Доступні опції:
+   - **Інтервал оновлення:** Як часто запитувати дані (1-60 сек)
+   - **Увімкнути кешування:** Показувати старі дані при збоях
+   - **Макс. спроб:** Скільки разів пробувати перед показом "Disconnected"
+
+---
+
+## 🔧 Сумісність
+
+### Перевірені моделі інверторів:
+- ✅ Deye SUN-5K-SG03LP1-EU
+- ✅ Deye SUN-10K-SG04LP3-EU
+- ✅ Deye SUN-12K-SG04LP3-EU
+- ✅ (Більшість гібридних моделей Deye з підтримкою EW11)
+
+### Вимоги:
+- Home Assistant 2024.1.0 або новіше
+- WiFi донгл EW11 підключений до інвертора
+- Локальна мережа (інтеграція працює через Modbus TCP)
+
+---
+
+## 🐛 Відомі проблеми та їх вирішення
+
+### Сенсори показують "Unavailable"
+- Перевірте IP адресу та порт EW11
+- Переконайтесь що EW11 підключений до WiFi
+- Спробуйте збільшити інтервал оновлення до 10 сек
+- Увімкніть кешування в налаштуваннях
+
+### Неправильні значення потужності
+- Переконайтесь що Slave ID правильний (зазвичай 1)
+- Перезавантажте інвертор та EW11
+
+### Генератор не відображається
+- Переконайтесь що генератор фізично підключений
+- Перевірте регістр 166 (0xA6) в налаштуваннях інвертора
+
+---
+
+## 📝 Ліцензія
+
+MIT License - дивіться [LICENSE](LICENSE) для деталей.
+
+---
+
+## 🤝 Підтримка проєкту
+
+Якщо ця інтеграція вам допомогла, поставте ⭐ на GitHub!
+
+Знайшли баг або є ідея? [Створіть Issue](https://github.com/byrsapty/zotac-deye-monitor/issues)
+
+---
+
+## 👨‍💻 Автор
+
+Розроблено з ❤️ для української спільноти Home Assistant.
