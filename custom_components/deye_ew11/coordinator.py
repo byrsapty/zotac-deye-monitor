@@ -159,6 +159,12 @@ class DeyeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # Read Block 1 (60-115) - WORKING!
             regs_energy = await self.modbus_client.read_holding_registers(60, 55)
             
+            # If first block failed, don't read others (connection broken)
+            if not regs_energy or len(regs_energy) < 53:
+                _LOGGER.warning("Failed to read energy registers (block 1), aborting")
+                await self.modbus_client.disconnect()
+                return data
+            
             # Read Block 2 (150-196) - WORKING!
             regs_live = await self.modbus_client.read_holding_registers(150, 46)
 
