@@ -87,12 +87,12 @@ SENSOR_TYPES = [
               f"{int(val)} год"
          )(
              # Inner logic: Standardize to HOURS first
-             # If CHARGING (power > 0, POSITIVE): Time to FULL
+             # If CHARGING (power < 0, negative): Time to FULL
              round(((c - (c * d.get("battery_soc", 0) / 100)) * 1000) / abs(d.get("battery_power", 1)), 2)
-             if d.get("battery_power", 0) > 10 else 
-             # If DISCHARGING (power < 0, NEGATIVE): Time to EMPTY
+             if d.get("battery_power", 0) < -10 else 
+             # If DISCHARGING (power >= 0, positive): Time to EMPTY
              round(((c * d.get("battery_soc", 0) / 100) * 1000) / d.get("load_power", 1), 2)
-             if d.get("battery_power", 0) < -10 and d.get("load_power", 0) > 50 else 0
+             if d.get("load_power", 0) > 50 else 0
          )
      )),
 ]
