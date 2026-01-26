@@ -18,7 +18,7 @@ class ModbusClient:
         host: str,
         port: int = 502,
         slave_id: int = 1,
-        timeout: float = 1.2,  # User's working timeout!
+        timeout: float = 2.0,  # Increased for WiFi stability
     ) -> None:
         """Initialize the Modbus client."""
         self.host = host
