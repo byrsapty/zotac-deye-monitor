@@ -94,17 +94,23 @@ class ModbusClient:
                 _LOGGER.error("Invalid response header")
                 return None
             
-            _, _, byte_count = struct.unpack("BBB", header)
-            
-            # Receive data + CRC (SINGLE recv like user's code! NO LOOP!)
+            _, _, byte_count = struct.unpack("BBB", header)            # Receive data + CRC (SINGLE recv like user's code! NO LOOP!)
             raw_data = self._socket.recv(byte_count + 2)
+            
+            # Validate buffer size (protect from corrupted EW11 packets)
+            if len(raw_data) < byte_count:
+                _LOGGER.error("Incomplete packet at %d: expected %d bytes, got %d", address, byte_count, len(raw_data))
+                return None
             
             # Parse registers
             registers = []
             for i in range(0, byte_count, 2):
-                reg_value = struct.unpack(">H", raw_data[i:i+2])[0]
-                registers.append(reg_value)
-            
+                if i + 1 < len(raw_data):
+                    reg_value = struct.unpack(">H", raw_data[i:i+2])[0]
+                    registers.append(reg_value)
+                else:
+                    _LOGGER.error("Buffer overflow at register %d, index %d", address, i)
+                    return None            
             return registers
 
         except socket.timeout:
