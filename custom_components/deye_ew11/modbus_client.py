@@ -1,4 +1,4 @@
-"""Native Modbus TCP client - EXACTLY matching user's get_deye.py."""
+﻿"""Native Modbus TCP client - EXACTLY matching user's get_deye.py."""
 from __future__ import annotations
 
 import asyncio
@@ -117,6 +117,27 @@ class ModbusClient:
     async def read_holding_registers(
         self, address: int, count: int
     ) -> List[int] | None:
-        """Read holding registers (async wrapper)."""
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self._read_registers_sync, address, count)
+        """Read holding registers with retry logic (async wrapper)."""
+        max_retries = 2
+        retry_delay = 0.3  # seconds
+        
+        for attempt in range(max_retries + 1):
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, self._read_registers_sync, address, count)
+            
+            if result is not None:
+                if attempt > 0:
+                    _LOGGER.info(" Retry %d successful for register %d", attempt, address)
+                return result
+            
+            # If failed and not last attempt - retry with backoff
+            if attempt < max_retries:
+                wait_time = retry_delay * (2 ** attempt)  # Exponential backoff: 0.3s, 0.6s
+                _LOGGER.warning(" Retry %d/%d for register %d after %.1fs", 
+                               attempt + 1, max_retries, address, wait_time)
+                await asyncio.sleep(wait_time)
+        
+        # All retries failed
+        _LOGGER.error(" All %d retries failed for register %d", max_retries + 1, address)
+        return None
+
