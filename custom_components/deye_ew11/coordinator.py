@@ -22,6 +22,8 @@ from .const import (
     CONF_BROKER_PORT,
     CONF_TOPIC_REQUEST,
     CONF_TOPIC_RESPONSE,
+    CONF_MQTT_USERNAME,
+    CONF_MQTT_PASSWORD,
     DEFAULT_UPDATE_INTERVAL,
     DEFAULT_USE_CACHE,
     DEFAULT_MAX_CACHE_AGE,
@@ -58,12 +60,16 @@ class DeyeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             broker_port = entry.data.get(CONF_BROKER_PORT, 1883)
             topic_req = entry.data.get(CONF_TOPIC_REQUEST, "deye/request")
             topic_res = entry.data.get(CONF_TOPIC_RESPONSE, "deye/response")
+            mqtt_user = entry.data.get(CONF_MQTT_USERNAME, "")
+            mqtt_pass = entry.data.get(CONF_MQTT_PASSWORD, "")
             
             self.client = DeyeMQTTClient(
                 broker_ip=broker_ip,
                 broker_port=broker_port,
                 topic_request=topic_req,
                 topic_response=topic_res,
+                username=mqtt_user if mqtt_user else None,
+                password=mqtt_pass if mqtt_pass else None,
             )
             self.modbus_client = None  # Not used for MQTT
             

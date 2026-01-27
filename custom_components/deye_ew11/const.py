@@ -18,6 +18,8 @@ CONF_BROKER_IP = "broker_ip"
 CONF_BROKER_PORT = "broker_port"
 CONF_TOPIC_REQUEST = "topic_request"
 CONF_TOPIC_RESPONSE = "topic_response"
+CONF_MQTT_USERNAME = "mqtt_username"
+CONF_MQTT_PASSWORD = "mqtt_password"
 
 # Protocol options
 PROTOCOL_MODBUS = "modbus"

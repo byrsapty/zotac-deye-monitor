@@ -23,6 +23,8 @@ from .const import (
     CONF_BROKER_PORT,
     CONF_TOPIC_REQUEST,
     CONF_TOPIC_RESPONSE,
+    CONF_MQTT_USERNAME,
+    CONF_MQTT_PASSWORD,
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_INVERTER_TYPE,
     DEFAULT_PORT,
@@ -149,6 +151,8 @@ class DeyeEW11ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_NAME, default="Deye Inverter (MQTT)"): str,
                 vol.Required(CONF_BROKER_IP): str,
                 vol.Required(CONF_BROKER_PORT, default=DEFAULT_BROKER_PORT): int,
+                vol.Optional(CONF_MQTT_USERNAME, default=""): str,
+                vol.Optional(CONF_MQTT_PASSWORD, default=""): str,
                 vol.Optional(CONF_TOPIC_REQUEST, default=DEFAULT_TOPIC_REQUEST): str,
                 vol.Optional(CONF_TOPIC_RESPONSE, default=DEFAULT_TOPIC_RESPONSE): str,
                 vol.Required(
@@ -197,6 +201,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_NAME: user_input[CONF_NAME],
                     CONF_BROKER_IP: user_input[CONF_BROKER_IP],
                     CONF_BROKER_PORT: user_input[CONF_BROKER_PORT],
+                    CONF_MQTT_USERNAME: user_input.get(CONF_MQTT_USERNAME, ""),
+                    CONF_MQTT_PASSWORD: user_input.get(CONF_MQTT_PASSWORD, ""),
                     CONF_TOPIC_REQUEST: user_input.get(CONF_TOPIC_REQUEST, DEFAULT_TOPIC_REQUEST),
                     CONF_TOPIC_RESPONSE: user_input.get(CONF_TOPIC_RESPONSE, DEFAULT_TOPIC_RESPONSE),
                     CONF_INVERTER_TYPE: user_input[CONF_INVERTER_TYPE],
@@ -241,6 +247,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Required(
                     CONF_BROKER_PORT, default=data.get(CONF_BROKER_PORT, DEFAULT_BROKER_PORT)
                 ): int,
+                vol.Optional(
+                    CONF_MQTT_USERNAME, default=data.get(CONF_MQTT_USERNAME, "")
+                ): str,
+                vol.Optional(
+                    CONF_MQTT_PASSWORD, default=data.get(CONF_MQTT_PASSWORD, "")
+                ): str,
                 vol.Optional(
                     CONF_TOPIC_REQUEST, default=data.get(CONF_TOPIC_REQUEST, DEFAULT_TOPIC_REQUEST)
                 ): str,

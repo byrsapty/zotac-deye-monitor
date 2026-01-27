@@ -24,6 +24,8 @@ class DeyeMQTTClient:
         broker_port: int = 1883,
         topic_request: str = "deye/request",
         topic_response: str = "deye/response",
+        username: str = None,
+        password: str = None,
     ):
         """Initialize MQTT client."""
         if not MQTT_AVAILABLE:
@@ -36,6 +38,8 @@ class DeyeMQTTClient:
         self.broker_port = broker_port
         self.topic_request = topic_request
         self.topic_response = topic_response
+        self.username = username
+        self.password = password
         
         self._client: Optional[mqtt.Client] = None
         self._data: Dict[str, Any] = {}
@@ -91,6 +95,11 @@ class DeyeMQTTClient:
             self._client.on_connect = self._on_connect
             self._client.on_disconnect = self._on_disconnect
             self._client.on_message = self._on_message
+            
+            # Set credentials if provided
+            if self.username and self.password:
+                self._client.username_pw_set(self.username, self.password)
+                _LOGGER.debug("MQTT: Using authentication (user: %s)", self.username)
 
             # Run connection in executor to avoid blocking
             loop = asyncio.get_event_loop()
