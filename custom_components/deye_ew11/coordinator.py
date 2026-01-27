@@ -344,14 +344,23 @@ class DeyeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception as err:
             _LOGGER.error("Error updating: %s", err, exc_info=True)
             try:
-                await self.modbus_client.disconnect()
+                if self.modbus_client:
+                    await self.modbus_client.disconnect()
             except:
                 pass
             return {"connected": False}
 
     async def async_shutdown(self) -> None:
         """Shutdown the coordinator."""
-        await self.modbus_client.disconnect()
+        _LOGGER.info("Shutting down coordinator")
+        
+        # Disconnect protocol-specific client
+        if self.protocol == PROTOCOL_MQTT:
+            if hasattr(self, 'client') and self.client:
+                await self.client.disconnect()
+        else:
+            if self.modbus_client:
+                await self.modbus_client.disconnect()
     
     async def async_config_entry_updated(self) -> None:
         """Handle config updates."""
