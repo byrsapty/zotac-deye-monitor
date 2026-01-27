@@ -56,7 +56,7 @@ class DeyeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         # Initialize protocol-specific client
         if self.protocol == PROTOCOL_MQTT:
-            broker_ip = entry.data.get(CONF_BROKER_IP)
+            self.broker_ip = entry.data.get(CONF_BROKER_IP)
             broker_port = entry.data.get(CONF_BROKER_PORT, 1883)
             topic_req = entry.data.get(CONF_TOPIC_REQUEST, "deye/request")
             topic_res = entry.data.get(CONF_TOPIC_RESPONSE, "deye/response")
@@ -64,7 +64,7 @@ class DeyeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             mqtt_pass = entry.data.get(CONF_MQTT_PASSWORD, "")
             
             self.client = DeyeMQTTClient(
-                broker_ip=broker_ip,
+                broker_ip=self.broker_ip,
                 broker_port=broker_port,
                 topic_request=topic_req,
                 topic_response=topic_res,
@@ -75,7 +75,7 @@ class DeyeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             
             _LOGGER.info(
                 "Coordinator init: MQTT %s:%s (Type: %s, Cache: %s)",
-                broker_ip, broker_port, self.inverter_type, self.use_cache
+                self.broker_ip, broker_port, self.inverter_type, self.use_cache
             )
         else:
             # Modbus TCP
@@ -380,7 +380,10 @@ class DeyeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def device_info(self) -> dict[str, Any]:
         """Return device information."""
         # Use broker_ip for MQTT, host for Modbus
-        config_url = f"http://{self.broker_ip}" if hasattr(self, 'broker_ip') else f"http://{self.host}"
+        if self.protocol == PROTOCOL_MQTT:
+            config_url = f"http://{self.broker_ip}"
+        else:
+            config_url = f"http://{self.host}"
         
         return {
             "identifiers": {(DOMAIN, self.entry.entry_id)},
