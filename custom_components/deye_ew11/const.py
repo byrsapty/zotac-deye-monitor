@@ -12,6 +12,17 @@ CONF_BATTERY_CAPACITY = "battery_capacity"
 CONF_USE_CACHE = "use_cache"  # NEW: Cache last data on temporary failures
 CONF_MAX_CACHE_AGE = "max_cache_age"  # NEW: Max failed attempts before showing Disconnected
 
+# MQTT Configuration
+CONF_PROTOCOL = "protocol"
+CONF_BROKER_IP = "broker_ip"
+CONF_BROKER_PORT = "broker_port"
+CONF_TOPIC_REQUEST = "topic_request"
+CONF_TOPIC_RESPONSE = "topic_response"
+
+# Protocol options
+PROTOCOL_MODBUS = "modbus"
+PROTOCOL_MQTT = "mqtt"
+
 # Default values
 DEFAULT_NAME = "Deye Inverter"
 DEFAULT_PORT = 502
@@ -21,6 +32,12 @@ DEFAULT_UPDATE_INTERVAL = 5  # seconds
 DEFAULT_BATTERY_CAPACITY = 10.24  # kWh
 DEFAULT_USE_CACHE = True  # NEW: Default ON - use cached data
 DEFAULT_MAX_CACHE_AGE = 3  # NEW: Show Disconnected after 3 failed updates
+
+# MQTT defaults
+DEFAULT_PROTOCOL = PROTOCOL_MODBUS
+DEFAULT_BROKER_PORT = 1883
+DEFAULT_TOPIC_REQUEST = "deye/request"
+DEFAULT_TOPIC_RESPONSE = "deye/response"
 
 # Timeouts
 MODBUS_TIMEOUT = 3  # seconds (not used, client uses 1.2)

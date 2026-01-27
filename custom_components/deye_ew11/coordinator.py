@@ -17,13 +17,21 @@ from .const import (
     CONF_UPDATE_INTERVAL,
     CONF_USE_CACHE,
     CONF_MAX_CACHE_AGE,
+    CONF_PROTOCOL,
+    CONF_BROKER_IP,
+    CONF_BROKER_PORT,
+    CONF_TOPIC_REQUEST,
+    CONF_TOPIC_RESPONSE,
     DEFAULT_UPDATE_INTERVAL,
     DEFAULT_USE_CACHE,
     DEFAULT_MAX_CACHE_AGE,
     DOMAIN,
     MODBUS_TIMEOUT,
+    PROTOCOL_MODBUS,
+    PROTOCOL_MQTT,
 )
 from .modbus_client import ModbusClient
+from .mqtt_client import DeyeMQTTClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,9 +42,7 @@ class DeyeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
         self.entry = entry
-        self.host = entry.data.get(CONF_HOST, "192.168.1.103")
-        self.port = entry.data.get(CONF_PORT, 502)
-        self.slave_id = entry.data.get(CONF_SLAVE_ID, 1)
+        self.protocol = entry.data.get(CONF_PROTOCOL, PROTOCOL_MODBUS)
         self.inverter_type = entry.data.get(CONF_INVERTER_TYPE, "deye_hybrid")
         self.update_interval_seconds = entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
         self.use_cache = entry.data.get(CONF_USE_CACHE, DEFAULT_USE_CACHE)
@@ -46,34 +52,52 @@ class DeyeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._last_good_data: dict[str, Any] | None = None
         self._failed_updates = 0
 
-        # Initialize Modbus client (using 1.2s timeout as proven working)
-        self.modbus_client = ModbusClient(
-            host=self.host,
-            port=self.port,
-            slave_id=self.slave_id,
-            timeout=1.2,
-        )
+        # Initialize protocol-specific client
+        if self.protocol == PROTOCOL_MQTT:
+            broker_ip = entry.data.get(CONF_BROKER_IP)
+            broker_port = entry.data.get(CONF_BROKER_PORT, 1883)
+            topic_req = entry.data.get(CONF_TOPIC_REQUEST, "deye/request")
+            topic_res = entry.data.get(CONF_TOPIC_RESPONSE, "deye/response")
+            
+            self.client = DeyeMQTTClient(
+                broker_ip=broker_ip,
+                broker_port=broker_port,
+                topic_request=topic_req,
+                topic_response=topic_res,
+            )
+            self.modbus_client = None  # Not used for MQTT
+            
+            _LOGGER.info(
+                "Coordinator init: MQTT %s:%s (Type: %s, Cache: %s)",
+                broker_ip, broker_port, self.inverter_type, self.use_cache
+            )
+        else:
+            # Modbus TCP
+            self.host = entry.data.get(CONF_HOST, "192.168.1.103")
+            self.port = entry.data.get(CONF_PORT, 502)
+            self.slave_id = entry.data.get(CONF_SLAVE_ID, 1)
+            
+            self.modbus_client = ModbusClient(
+                host=self.host,
+                port=self.port,
+                slave_id=self.slave_id,
+                timeout=2.0,  # Increased timeout for stability
+            )
+            self.client = self.modbus_client  # Alias for compatibility
+            
+            _LOGGER.info(
+                "Coordinator init: Modbus %s:%s (Type: %s, Cache: %s)",
+                self.host, self.port, self.inverter_type, self.use_cache
+            )
         
         # Hardcoded mode only for v1.0
         self.use_hardcoded = True
-        
-        _LOGGER.info(
-            "Coordinator init: %s:%s (Type: %s, Data: Hardcoded, Cache: %s)",
-            self.host, self.port, self.inverter_type, self.use_cache
-        )
 
         super().__init__(
             hass,
             _LOGGER,
             name=f"{DOMAIN}_{entry.entry_id}",
             update_interval=timedelta(seconds=self.update_interval_seconds),
-        )
-        
-        _LOGGER.info(
-            "Coordinator init: %s:%s (Type: %s, Mode: %s, Update: %ds)",
-            self.host, self.port, self.inverter_type,
-            "Hardcoded" if self.use_hardcoded else "YAML",
-            self.update_interval_seconds
         )
 
     def _to_signed(self, val: int) -> int:
@@ -119,7 +143,65 @@ class DeyeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return {"connected": False}
 
     async def _update_hardcoded(self) -> dict[str, Any]:
-        """Update using hardcoded logic - PROVEN WORKING!"""
+        """Update using hardcoded logic - supports both Modbus and MQTT!"""
+        # Route to protocol-specific implementation
+        if self.protocol == PROTOCOL_MQTT:
+            return await self._update_mqtt()
+        else:
+            return await self._update_modbus()
+
+    async def _update_mqtt(self) -> dict[str, Any]:
+        """Update from MQTT broker."""
+        try:
+            # Get data from MQTT client
+            mqtt_data = await self.client.async_get_data()
+            
+            if not mqtt_data or not mqtt_data.get("connected"):
+                return {"connected": False}
+            
+            # MQTT client already returns data in the right format
+            # Just ensure it has all required fields
+            data = {
+                "connected": True,
+                "grid_voltage": mqtt_data.get("grid_voltage", 0.0),
+                "grid_freq": mqtt_data.get("grid_freq", 0.0),
+                "load_freq": 0.0,  # Not available via MQTT
+                "grid_power": mqtt_data.get("grid_power", 0),
+                "load_power": mqtt_data.get("load_power", 0),
+                "battery_voltage": mqtt_data.get("battery_voltage", 0.0),
+                "battery_soc": mqtt_data.get("battery_soc", 0),
+                "battery_power": mqtt_data.get("battery_power", 0),
+                "battery_current": mqtt_data.get("battery_current", 0.0),
+                "battery_temp": mqtt_data.get("battery_temp", 0.0),
+                "dc_temp": mqtt_data.get("dc_temp", 0.0),
+                "ac_temp": mqtt_data.get("ac_temp", 0.0),
+                "pv_power": mqtt_data.get("pv_power", 0),
+                "pv1_power": mqtt_data.get("pv1_power", 0),
+                "pv2_power": mqtt_data.get("pv2_power", 0),
+                "pv1_voltage": 0.0,  # Not available via MQTT
+                "pv1_current": 0.0,  # Not available via MQTT
+                "pv2_voltage": 0.0,  # Not available via MQTT
+                "pv2_current": 0.0,  # Not available via MQTT
+                "inverter_current": 0.0,  # Not available via MQTT
+                "day_battery_charge": mqtt_data.get("daily_battery_charge", 0.0),
+                "day_battery_discharge": mqtt_data.get("daily_battery_discharge", 0.0),
+                "day_grid_import": 0.0,  # Not available via MQTT
+                "day_grid_export": 0.0,  # Not available via MQTT
+                "day_load_energy": 0.0,  # Not available via MQTT
+                "day_pv_energy": mqtt_data.get("daily_pv_production", 0.0),
+            }
+            
+            _LOGGER.debug("📨 MQTT data: SOC=%d%%, Battery=%dW, Grid=%dW",
+                         data["battery_soc"], data["battery_power"], data["grid_power"])
+            
+            return data
+            
+        except Exception as err:
+            _LOGGER.error("MQTT update error: %s", err)
+            return {"connected": False}
+
+    async def _update_modbus(self) -> dict[str, Any]:
+        """Update from Modbus TCP."""
         data = {
             "connected": False,
             "grid_voltage": 0.0,

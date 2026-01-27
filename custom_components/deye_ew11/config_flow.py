@@ -18,6 +18,11 @@ from .const import (
     CONF_UPDATE_INTERVAL,
     CONF_USE_CACHE,
     CONF_MAX_CACHE_AGE,
+    CONF_PROTOCOL,
+    CONF_BROKER_IP,
+    CONF_BROKER_PORT,
+    CONF_TOPIC_REQUEST,
+    CONF_TOPIC_RESPONSE,
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_INVERTER_TYPE,
     DEFAULT_PORT,
@@ -25,8 +30,14 @@ from .const import (
     DEFAULT_UPDATE_INTERVAL,
     DEFAULT_USE_CACHE,
     DEFAULT_MAX_CACHE_AGE,
+    DEFAULT_PROTOCOL,
+    DEFAULT_BROKER_PORT,
+    DEFAULT_TOPIC_REQUEST,
+    DEFAULT_TOPIC_RESPONSE,
     DOMAIN,
     INVERTER_TYPES,
+    PROTOCOL_MODBUS,
+    PROTOCOL_MQTT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,11 +48,45 @@ class DeyeEW11ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def __init__(self):
+        """Initialize config flow."""
+        self._protocol = None
+        self._config = {}
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle the initial step."""
+        """Handle protocol selection."""
         if user_input is not None:
+            self._protocol = user_input[CONF_PROTOCOL]
+            
+            # Move to protocol-specific step
+            if self._protocol == PROTOCOL_MODBUS:
+                return await self.async_step_modbus()
+            else:
+                return await self.async_step_mqtt()
+
+        # Show protocol selector
+        data_schema = vol.Schema({
+            vol.Required(CONF_PROTOCOL, default=DEFAULT_PROTOCOL): vol.In({
+                PROTOCOL_MODBUS: "Modbus TCP",
+                PROTOCOL_MQTT: "MQTT (via Mosquitto)",
+            }),
+        })
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=data_schema,
+        )
+
+    async def async_step_modbus(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle Modbus TCP configuration."""
+        if user_input is not None:
+            self._config.update(user_input)
+            self._config[CONF_PROTOCOL] = PROTOCOL_MODBUS
+            
             await self.async_set_unique_id(
                 f"{user_input[CONF_HOST]}_{user_input[CONF_SLAVE_ID]}"
             )
@@ -49,7 +94,7 @@ class DeyeEW11ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             return self.async_create_entry(
                 title=user_input.get(CONF_NAME, "Deye Inverter"),
-                data=user_input,
+                data=self._config,
             )
 
         data_schema = vol.Schema(
@@ -77,9 +122,53 @@ class DeyeEW11ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         return self.async_show_form(
-            step_id="user",
+            step_id="modbus",
             data_schema=data_schema,
         )
+
+    async def async_step_mqtt(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle MQTT configuration."""
+        if user_input is not None:
+            self._config.update(user_input)
+            self._config[CONF_PROTOCOL] = PROTOCOL_MQTT
+            
+            await self.async_set_unique_id(
+                f"mqtt_{user_input[CONF_BROKER_IP]}_{user_input.get(CONF_BROKER_PORT, 1883)}"
+            )
+            self._abort_if_unique_id_configured()
+
+            return self.async_create_entry(
+                title=user_input.get(CONF_NAME, "Deye Inverter (MQTT)"),
+                data=self._config,
+            )
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(CONF_NAME, default="Deye Inverter (MQTT)"): str,
+                vol.Required(CONF_BROKER_IP): str,
+                vol.Required(CONF_BROKER_PORT, default=DEFAULT_BROKER_PORT): int,
+                vol.Optional(CONF_TOPIC_REQUEST, default=DEFAULT_TOPIC_REQUEST): str,
+                vol.Optional(CONF_TOPIC_RESPONSE, default=DEFAULT_TOPIC_RESPONSE): str,
+                vol.Required(
+                    CONF_INVERTER_TYPE, default=DEFAULT_INVERTER_TYPE
+                ): vol.In(INVERTER_TYPES),
+                vol.Optional(
+                    CONF_BATTERY_CAPACITY, default=DEFAULT_BATTERY_CAPACITY
+                ): vol.Coerce(float),
+                vol.Optional(
+                    CONF_UPDATE_INTERVAL, default=DEFAULT_UPDATE_INTERVAL
+                ): int,
+            }
+        )
+
+
+        return self.async_show_form(
+            step_id="mqtt",
+            data_schema=data_schema,
+        )
+
 
     @staticmethod
     @callback

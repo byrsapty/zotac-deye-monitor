@@ -1,7 +1,7 @@
 {
   "domain": "deye_ew11",
   "name": "Deye EW11 Inverter",
-  "version": "1.0.2",
+  "version": "2.1.0",
   "codeowners": [
     "@byrsapty"
   ],
