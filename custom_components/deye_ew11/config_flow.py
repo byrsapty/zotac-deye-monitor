@@ -187,16 +187,35 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Manage ALL options."""
         if user_input is not None:
-            # Update ALL data
-            new_data = {
-                CONF_NAME: user_input[CONF_NAME],
-                CONF_HOST: user_input[CONF_HOST],
-                CONF_PORT: user_input[CONF_PORT],
-                CONF_SLAVE_ID: user_input[CONF_SLAVE_ID],
-                CONF_INVERTER_TYPE: user_input[CONF_INVERTER_TYPE],
-                CONF_BATTERY_CAPACITY: user_input[CONF_BATTERY_CAPACITY],
-                CONF_UPDATE_INTERVAL: user_input[CONF_UPDATE_INTERVAL],
-            }
+            # Get current protocol
+            protocol = self.config_entry.data.get(CONF_PROTOCOL, PROTOCOL_MODBUS)
+            
+            # Build new data based on protocol
+            if protocol == PROTOCOL_MQTT:
+                new_data = {
+                    CONF_PROTOCOL: PROTOCOL_MQTT,
+                    CONF_NAME: user_input[CONF_NAME],
+                    CONF_BROKER_IP: user_input[CONF_BROKER_IP],
+                    CONF_BROKER_PORT: user_input[CONF_BROKER_PORT],
+                    CONF_TOPIC_REQUEST: user_input.get(CONF_TOPIC_REQUEST, DEFAULT_TOPIC_REQUEST),
+                    CONF_TOPIC_RESPONSE: user_input.get(CONF_TOPIC_RESPONSE, DEFAULT_TOPIC_RESPONSE),
+                    CONF_INVERTER_TYPE: user_input[CONF_INVERTER_TYPE],
+                    CONF_BATTERY_CAPACITY: user_input[CONF_BATTERY_CAPACITY],
+                    CONF_UPDATE_INTERVAL: user_input[CONF_UPDATE_INTERVAL],
+                }
+            else:
+                new_data = {
+                    CONF_PROTOCOL: PROTOCOL_MODBUS,
+                    CONF_NAME: user_input[CONF_NAME],
+                    CONF_HOST: user_input[CONF_HOST],
+                    CONF_PORT: user_input[CONF_PORT],
+                    CONF_SLAVE_ID: user_input[CONF_SLAVE_ID],
+                    CONF_INVERTER_TYPE: user_input[CONF_INVERTER_TYPE],
+                    CONF_BATTERY_CAPACITY: user_input[CONF_BATTERY_CAPACITY],
+                    CONF_UPDATE_INTERVAL: user_input[CONF_UPDATE_INTERVAL],
+                    CONF_USE_CACHE: user_input.get(CONF_USE_CACHE, DEFAULT_USE_CACHE),
+                    CONF_MAX_CACHE_AGE: user_input.get(CONF_MAX_CACHE_AGE, DEFAULT_MAX_CACHE_AGE),
+                }
             
             self.hass.config_entries.async_update_entry(
                 self.config_entry, data=new_data, title=new_data[CONF_NAME]
@@ -208,38 +227,68 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
         # Current values
         data = self.config_entry.data
+        protocol = data.get(CONF_PROTOCOL, PROTOCOL_MODBUS)
+        
+        # Build schema based on protocol
+        if protocol == PROTOCOL_MQTT:
+            schema = vol.Schema({
+                vol.Required(
+                    CONF_NAME, default=data.get(CONF_NAME, "Deye Inverter (MQTT)")
+                ): str,
+                vol.Required(
+                    CONF_BROKER_IP, default=data.get(CONF_BROKER_IP, "127.0.0.1")
+                ): str,
+                vol.Required(
+                    CONF_BROKER_PORT, default=data.get(CONF_BROKER_PORT, DEFAULT_BROKER_PORT)
+                ): int,
+                vol.Optional(
+                    CONF_TOPIC_REQUEST, default=data.get(CONF_TOPIC_REQUEST, DEFAULT_TOPIC_REQUEST)
+                ): str,
+                vol.Optional(
+                    CONF_TOPIC_RESPONSE, default=data.get(CONF_TOPIC_RESPONSE, DEFAULT_TOPIC_RESPONSE)
+                ): str,
+                vol.Required(
+                    CONF_INVERTER_TYPE, default=data.get(CONF_INVERTER_TYPE, DEFAULT_INVERTER_TYPE)
+                ): vol.In(INVERTER_TYPES),
+                vol.Required(
+                    CONF_BATTERY_CAPACITY, default=data.get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY)
+                ): vol.Coerce(float),
+                vol.Required(
+                    CONF_UPDATE_INTERVAL, default=data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
+                ): int,
+            })
+        else:
+            schema = vol.Schema({
+                vol.Required(
+                    CONF_NAME, default=data.get(CONF_NAME, "Deye Inverter")
+                ): str,
+                vol.Required(
+                    CONF_HOST, default=data.get(CONF_HOST, "192.168.1.103")
+                ): str,
+                vol.Required(
+                    CONF_PORT, default=data.get(CONF_PORT, DEFAULT_PORT)
+                ): int,
+                vol.Required(
+                    CONF_SLAVE_ID, default=data.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
+                ): int,
+                vol.Required(
+                    CONF_INVERTER_TYPE, default=data.get(CONF_INVERTER_TYPE, DEFAULT_INVERTER_TYPE)
+                ): vol.In(INVERTER_TYPES),
+                vol.Required(
+                    CONF_BATTERY_CAPACITY, default=data.get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY)
+                ): vol.Coerce(float),
+                vol.Required(
+                    CONF_UPDATE_INTERVAL, default=data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
+                ): int,
+                vol.Required(
+                    CONF_USE_CACHE, default=data.get(CONF_USE_CACHE, DEFAULT_USE_CACHE)
+                ): bool,
+                vol.Required(
+                    CONF_MAX_CACHE_AGE, default=data.get(CONF_MAX_CACHE_AGE, DEFAULT_MAX_CACHE_AGE)
+                ): int,
+            })
         
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        CONF_NAME, default=data.get(CONF_NAME, "Deye Inverter")
-                    ): str,
-                    vol.Required(
-                        CONF_HOST, default=data.get(CONF_HOST, "192.168.1.103")
-                    ): str,
-                    vol.Required(
-                        CONF_PORT, default=data.get(CONF_PORT, DEFAULT_PORT)
-                    ): int,
-                    vol.Required(
-                        CONF_SLAVE_ID, default=data.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
-                    ): int,
-                    vol.Required(
-                        CONF_INVERTER_TYPE, default=data.get(CONF_INVERTER_TYPE, DEFAULT_INVERTER_TYPE)
-                    ): vol.In(INVERTER_TYPES),
-                    vol.Required(
-                        CONF_BATTERY_CAPACITY, default=data.get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY)
-                    ): vol.Coerce(float),
-                    vol.Required(
-                        CONF_UPDATE_INTERVAL, default=data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
-                    ): int,
-                    vol.Required(
-                        CONF_USE_CACHE, default=data.get(CONF_USE_CACHE, DEFAULT_USE_CACHE)
-                    ): bool,
-                    vol.Required(
-                        CONF_MAX_CACHE_AGE, default=data.get(CONF_MAX_CACHE_AGE, DEFAULT_MAX_CACHE_AGE)
-                    ): int,
-                }
-            ),
+            data_schema=schema,
         )
