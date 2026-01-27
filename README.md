@@ -181,7 +181,7 @@ Home Assistant потребує бібліотеку `paho-mqtt` для MQTT п�
 docker exec -it homeassistant /bin/bash
 
 # Встановити paho-mqtt
-pip install paho-mqtt>=2.0.0
+pip install paho-mqtt
 
 # Вийти
 exit
@@ -191,7 +191,7 @@ exit
 
 Або якщо використовуєте Home Assistant Core (не Docker):
 ```bash
-pip install paho-mqtt>=2.0.0
+pip install paho-mqtt
 ```
 
 **Налаштування Mosquitto (додати користувача):**
