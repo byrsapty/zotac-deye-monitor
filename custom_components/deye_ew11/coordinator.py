@@ -379,11 +379,14 @@ class DeyeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     @property
     def device_info(self) -> dict[str, Any]:
         """Return device information."""
+        # Use broker_ip for MQTT, host for Modbus
+        config_url = f"http://{self.broker_ip}" if hasattr(self, 'broker_ip') else f"http://{self.host}"
+        
         return {
             "identifiers": {(DOMAIN, self.entry.entry_id)},
             "name": self.entry.title,
             "manufacturer": "Deye",
             "model": "Hybrid Inverter (EW11)",
             "sw_version": "1.0.1",
-            "configuration_url": f"http://{self.host}",
+            "configuration_url": config_url,
         }

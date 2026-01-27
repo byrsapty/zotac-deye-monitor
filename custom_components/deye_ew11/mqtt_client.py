@@ -85,6 +85,7 @@ class DeyeMQTTClient:
 
     def _on_message(self, client, userdata, msg):
         """Handle MQTT message (response from EW11)."""
+        _LOGGER.debug("📩 MQTT: Received message on topic '%s' (%d bytes)", msg.topic, len(msg.payload))
         self._response_data = msg.payload
         self._response_event.set()
 
