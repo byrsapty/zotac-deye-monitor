@@ -91,15 +91,17 @@ class DeyeMQTTClient:
     async def connect(self) -> bool:
         """Connect to MQTT broker."""
         try:
-            self._client = mqtt.Client()
-            self._client.on_connect = self._on_connect
-            self._client.on_disconnect = self._on_disconnect
-            self._client.on_message = self._on_message
-            
-            # Set credentials if provided
-            if self.username and self.password:
-                self._client.username_pw_set(self.username, self.password)
-                _LOGGER.debug("MQTT: Using authentication (user: %s)", self.username)
+            # Create client only once (first time or after disconnect)
+            if self._client is None:
+                self._client = mqtt.Client()
+                self._client.on_connect = self._on_connect
+                self._client.on_disconnect = self._on_disconnect
+                self._client.on_message = self._on_message
+                
+                # Set credentials if provided
+                if self.username and self.password:
+                    self._client.username_pw_set(self.username, self.password)
+                    _LOGGER.debug("MQTT: Using authentication (user: %s)", self.username)
 
             # Run connection in executor to avoid blocking
             loop = asyncio.get_event_loop()
@@ -108,8 +110,9 @@ class DeyeMQTTClient:
                 lambda: self._client.connect(self.broker_ip, self.broker_port, 60)
             )
             
-            # Start MQTT loop in background
-            self._client.loop_start()
+            # Start MQTT loop in background (only if not already running)
+            if not self._client._thread:
+                self._client.loop_start()
             
             # Wait for connection (max 5 seconds)
             for _ in range(50):
