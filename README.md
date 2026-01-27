@@ -163,10 +163,32 @@
 
 **Вимоги:**
 ```bash
-# Ubuntu/Debian
+# Ubuntu/Debian - Mosquitto broker
 sudo apt-get install mosquitto
 
 # Windows - скачайте з https://mosquitto.org/download/
+```
+
+**Встановлення paho-mqtt (для Home Assistant):**
+
+Home Assistant потребує бібліотеку `paho-mqtt` для MQTT протоколу:
+
+```bash
+# Увійти в контейнер Home Assistant
+docker exec -it homeassistant /bin/bash
+
+# Встановити paho-mqtt
+pip install paho-mqtt>=2.0.0
+
+# Вийти
+exit
+
+# Перезапустити Home Assistant
+```
+
+Або якщо використовуєте Home Assistant Core (не Docker):
+```bash
+pip install paho-mqtt>=2.0.0
 ```
 
 **Налаштування Mosquitto (додати користувача):**
