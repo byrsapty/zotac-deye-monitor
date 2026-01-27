@@ -162,12 +162,15 @@
 - ❌ Складніше налаштування EW11
 
 **Вимоги:**
-```bash
-# Ubuntu/Debian - Mosquitto broker
-sudo apt-get install mosquitto
-
-# Windows - скачайте з https://mosquitto.org/download/
-```
+1. **MQTT Broker:** (Mosquitto)
+   ```bash
+   # Ubuntu/Debian
+   sudo apt-get install mosquitto
+   ```
+2. **Інтеграція "MQTT" в Home Assistant:**
+   - Перейдіть в **Settings** → **Devices & Services**
+   - Натисніть **+ ADD INTEGRATION**
+   - Знайдіть **MQTT** і налаштуйте підключення до вашого брокера (Mosquitto)
 
 **Встановлення paho-mqtt (для Home Assistant):**
 
@@ -198,8 +201,8 @@ pip install paho-mqtt>=2.0.0
 2. Додайте користувача в секцію `logins`:
 ```yaml
 logins:
-  - username: deye
-    password: deye9987
+  - username: mqtt_user
+    password: mqtt_password_123
 ```
 3. Save → Restart addon
 
@@ -209,8 +212,8 @@ logins:
 3. Налаштуйте:
    - Server IP: IP вашого ПК з Mosquitto (наприклад `192.168.1.155`)
    - Server Port: `1883`
-   - **MQTT Account:** `deye`
-   - **MQTT Password:** `deye9987`
+   - **MQTT Account:** `mqtt_user`
+   - **MQTT Password:** `mqtt_password_123`
    - Subscribe Topic: `deye/request`
    - Publish Topic: `deye/response`
 4. Збережіть та перезавантажте EW11
@@ -220,8 +223,8 @@ logins:
 2. Введіть:
    - Broker IP: `127.0.0.1` (якщо Mosquitto на тому ж ПК)
    - Broker Port: `1883`
-   - **MQTT Username:** `deye`
-   - **MQTT Password:** `deye9987`
+   - **MQTT Username:** `mqtt_user`
+   - **MQTT Password:** `mqtt_password_123`
    - Request Topic: `deye/request`
    - Response Topic: `deye/response`
 
