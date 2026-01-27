@@ -149,9 +149,9 @@ class DeyeMQTTClient:
                 
                 self._client.publish(self.topic_request, request)
                 
-                # Wait for response (max 5 seconds)
+                # Wait for response (max 10 seconds)
                 try:
-                    await asyncio.wait_for(self._response_event.wait(), timeout=5.0)
+                    await asyncio.wait_for(self._response_event.wait(), timeout=10.0)
                 except asyncio.TimeoutError:
                     _LOGGER.error("❌ MQTT: Timeout waiting for %s", block_name)
                     return None
