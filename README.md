@@ -169,12 +169,26 @@ sudo apt-get install mosquitto
 # Windows - скачайте з https://mosquitto.org/download/
 ```
 
+**Налаштування Mosquitto (додати користувача):**
+
+Якщо використовуєте Mosquitto addon в Home Assistant:
+1. Settings → Add-ons → Mosquitto broker → Configuration
+2. Додайте користувача в секцію `logins`:
+```yaml
+logins:
+  - username: deye
+    password: deye9987
+```
+3. Save → Restart addon
+
 **Налаштування EW11:**
 1. Відкрийте веб-інтерфейс EW11: `http://<IP_EW11>`
 2. Виберіть режим: **MQTT Client**
 3. Налаштуйте:
-   - Server IP: IP вашого ПК з Mosquitto
+   - Server IP: IP вашого ПК з Mosquitto (наприклад `192.168.1.155`)
    - Server Port: `1883`
+   - **MQTT Account:** `deye`
+   - **MQTT Password:** `deye9987`
    - Subscribe Topic: `deye/request`
    - Publish Topic: `deye/response`
 4. Збережіть та перезавантажте EW11
@@ -184,18 +198,12 @@ sudo apt-get install mosquitto
 2. Введіть:
    - Broker IP: `127.0.0.1` (якщо Mosquitto на тому ж ПК)
    - Broker Port: `1883`
+   - **MQTT Username:** `deye`
+   - **MQTT Password:** `deye9987`
    - Request Topic: `deye/request`
    - Response Topic: `deye/response`
 
-**Коли використовувати:**
-- Проблеми зі стабільністю Modbus
-- Потрібен віддалений доступ
-- Вже використовуєте MQTT для інших пристроїв
-
-> **💡 Примітка:** Для MQTT потрібна бібліотека `paho-mqtt`:
-> ```bash
-> pip install paho-mqtt>=2.0.0
-> ```
+> **💡 Примітка:** Username/Password опціональні - якщо залишити порожніми, підключення буде анонімним (потребує `allow_anonymous: true` в Mosquitto)
 
 ---
 
