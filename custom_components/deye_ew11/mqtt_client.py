@@ -196,8 +196,13 @@ class DeyeMQTTClient:
             # Helper for signed values
             def s(val): return val - 65536 if val > 32767 else val
             
+            # Filter noise < 50V for grid voltage
+            grid_volts = round(values[0] * 0.1, 1)
+            if grid_volts < 50.0:
+                grid_volts = 0.0
+
             return {
-                "grid_voltage": round(values[0] * 0.1, 1),               # Reg 150
+                "grid_voltage": grid_volts,                              # Reg 150
                 "load_voltage": round(values[4] * 0.1, 1),               # Reg 154
                 "grid_power": s(values[19]),                             # Reg 169
                 "load_power": s(values[28]),                             # Reg 178
