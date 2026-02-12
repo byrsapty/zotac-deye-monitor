@@ -204,6 +204,7 @@ class DeyeMQTTClient:
             return {
                 "grid_voltage": grid_volts,                              # Reg 150
                 "load_voltage": round(values[4] * 0.1, 1),               # Reg 154
+                "gen_power": s(values[16]),                              # Reg 166 (Generator)
                 "grid_power": s(values[19]),                             # Reg 169
                 "load_power": s(values[28]),                             # Reg 178
                 "battery_temp": round((values[32] - 1000) * 0.1, 1),     # Reg 182
