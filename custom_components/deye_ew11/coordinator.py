@@ -184,6 +184,7 @@ class DeyeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "pv_power": mqtt_data.get("pv_power", 0),
                 "pv1_power": mqtt_data.get("pv1_power", 0),
                 "pv2_power": mqtt_data.get("pv2_power", 0),
+                "gen_power": mqtt_data.get("gen_power", 0),
                 "pv1_voltage": 0.0,  # Not available via MQTT
                 "pv1_current": 0.0,  # Not available via MQTT
                 "pv2_voltage": 0.0,  # Not available via MQTT
