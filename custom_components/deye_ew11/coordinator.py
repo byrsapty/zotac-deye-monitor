@@ -171,7 +171,7 @@ class DeyeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "connected": True,
                 "grid_voltage": mqtt_data.get("grid_voltage", 0.0),
                 "grid_freq": mqtt_data.get("grid_freq", 0.0),
-                "load_freq": 0.0,  # Not available via MQTT
+                "load_freq": mqtt_data.get("load_freq", 0.0),
                 "grid_power": mqtt_data.get("grid_power", 0),
                 "load_power": mqtt_data.get("load_power", 0),
                 "battery_voltage": mqtt_data.get("battery_voltage", 0.0),
@@ -185,16 +185,16 @@ class DeyeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "pv1_power": mqtt_data.get("pv1_power", 0),
                 "pv2_power": mqtt_data.get("pv2_power", 0),
                 "gen_power": mqtt_data.get("gen_power", 0),
-                "pv1_voltage": 0.0,  # Not available via MQTT
-                "pv1_current": 0.0,  # Not available via MQTT
-                "pv2_voltage": 0.0,  # Not available via MQTT
-                "pv2_current": 0.0,  # Not available via MQTT
-                "inverter_current": 0.0,  # Not available via MQTT
+                "pv1_voltage": mqtt_data.get("pv1_voltage", 0.0),
+                "pv1_current": mqtt_data.get("pv1_current", 0.0),
+                "pv2_voltage": mqtt_data.get("pv2_voltage", 0.0),
+                "pv2_current": mqtt_data.get("pv2_current", 0.0),
+                "inverter_current": mqtt_data.get("inverter_current", 0.0),
                 "day_battery_charge": mqtt_data.get("daily_battery_charge", 0.0),
                 "day_battery_discharge": mqtt_data.get("daily_battery_discharge", 0.0),
-                "day_grid_import": 0.0,  # Not available via MQTT
-                "day_grid_export": 0.0,  # Not available via MQTT
-                "day_load_energy": 0.0,  # Not available via MQTT
+                "day_grid_import": mqtt_data.get("day_grid_import", 0.0),
+                "day_grid_export": mqtt_data.get("day_grid_export", 0.0),
+                "day_load_energy": mqtt_data.get("day_load_energy", 0.0),
                 "day_pv_energy": mqtt_data.get("daily_pv_production", 0.0),
             }
             

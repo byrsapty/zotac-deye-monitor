@@ -176,11 +176,18 @@ class DeyeMQTTClient:
             return {
                 "daily_battery_charge": round(values[10] * 0.1, 1),      # Reg 70
                 "daily_battery_discharge": round(values[11] * 0.1, 1),   # Reg 71
+                "day_grid_import": round(values[16] * 0.1, 1),           # Reg 76
+                "day_grid_export": round(values[17] * 0.1, 1),           # Reg 77
                 "grid_freq": round(values[19] * 0.01, 2),                # Reg 79
+                "day_load_energy": round(values[24] * 0.1, 1),           # Reg 84
                 "dc_temp": round((values[30] - 1000) * 0.1, 1),          # Reg 90
                 "ac_temp": round((values[31] - 1000) * 0.1, 1),          # Reg 91
                 "total_pv_production": round(values[36] * 0.1, 1),       # Reg 96
                 "daily_pv_production": round(values[48] * 0.1, 1),       # Reg 108
+                "pv1_voltage": round(values[49] * 0.1, 1),               # Reg 109
+                "pv1_current": round(values[50] * 0.1, 1),               # Reg 110
+                "pv2_voltage": round(values[51] * 0.1, 1),               # Reg 111
+                "pv2_current": round(values[52] * 0.1, 1),               # Reg 112
             }
         except Exception as err:
             _LOGGER.error("Error parsing block 1: %s", err)
@@ -204,6 +211,7 @@ class DeyeMQTTClient:
             return {
                 "grid_voltage": grid_volts,                              # Reg 150
                 "load_voltage": round(values[4] * 0.1, 1),               # Reg 154
+                "inverter_current": round(s(values[14]) * 0.01, 2),       # Reg 164
                 "gen_power": s(values[16]),                              # Reg 166 (Generator)
                 "grid_power": s(values[19]),                             # Reg 169
                 "load_power": s(values[28]),                             # Reg 178
@@ -214,6 +222,7 @@ class DeyeMQTTClient:
                 "pv2_power": s(values[37]),                              # Reg 187
                 "battery_power": s(values[40]),                          # Reg 190
                 "battery_current": round(s(values[41]) * 0.01, 2),       # Reg 191
+                "load_freq": round(values[43] * 0.01, 2),                # Reg 193
             }
         except Exception as err:
             _LOGGER.error("Error parsing block 2: %s", err)
