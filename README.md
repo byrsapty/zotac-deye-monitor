@@ -1,11 +1,11 @@
 <div align="center">
-  <img src=".github/logo.png" alt="Deye EW11 Logo" width="200"/>
+  <img src="https://raw.githubusercontent.com/byrsapty/zotac-deye-monitor/main/custom_components/deye_ew11/brand/icon@2x.png" alt="Deye EW11 Logo" width="200"/>
   <h1>Deye EW11 - Home Assistant Integration</h1>
 </div>
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/release/byrsapty/zotac-deye-monitor.svg)](https://github.com/byrsapty/zotac-deye-monitor/releases)
-[![License](https://img.shields.io/github/license/byrsapty/zotac-deye-monitor.svg)](LICENSE)
+[![License](https://img.shields.io/github/license/byrsapty/zotac-deye-monitor.svg)](https://github.com/byrsapty/zotac-deye-monitor/blob/main/LICENSE)
 
 Інтеграція для моніторингу **гібридних інверторів Deye** через **WiFi донгл EW11**.
 Підтримує **Modbus TCP** (пряме підключення) та **MQTT** (через брокер) протоколи.
@@ -281,7 +281,7 @@ logins:
 
 ## 📝 Ліцензія
 
-MIT License - дивіться [LICENSE](LICENSE) для деталей.
+MIT License - дивіться [LICENSE](https://github.com/byrsapty/zotac-deye-monitor/blob/main/LICENSE) для деталей.
 
 ---
 
