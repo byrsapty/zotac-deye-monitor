@@ -45,6 +45,8 @@ class DeyeMQTTClient:
         self._data: Dict[str, Any] = {}
         self._response_event = asyncio.Event()
         self._response_data: Optional[bytes] = None
+        self._expected_len = 0
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._is_connected = False
         self._lock = asyncio.Lock()
 
@@ -86,15 +88,35 @@ class DeyeMQTTClient:
     def _on_message(self, client, userdata, msg):
         """Handle MQTT message (response from EW11)."""
         _LOGGER.debug("📩 MQTT: Received message on topic '%s' (%d bytes)", msg.topic, len(msg.payload))
-        self._response_data = msg.payload
-        self._response_event.set()
+        # Runs in paho's network thread: asyncio.Event is not thread-safe,
+        # so hand the payload over to the event loop.
+        if self._loop:
+            self._loop.call_soon_threadsafe(self._set_response, msg.payload)
+
+    def _set_response(self, payload: bytes) -> None:
+        """Accept only a reply that matches the pending request."""
+        # A late reply to the previous block must not be taken for the current one
+        if (
+            len(payload) >= 3 + self._expected_len
+            and payload[1] == 3
+            and payload[2] == self._expected_len
+        ):
+            self._response_data = payload
+            self._response_event.set()
+        else:
+            _LOGGER.debug("MQTT: Ignoring unexpected reply (%d bytes)", len(payload))
 
     async def connect(self) -> bool:
         """Connect to MQTT broker."""
         try:
             # Create client only once (first time or after disconnect)
+            self._loop = asyncio.get_running_loop()
             if self._client is None:
-                self._client = mqtt.Client()
+                # paho-mqtt 2.x deprecates the implicit callback API version
+                if hasattr(mqtt, "CallbackAPIVersion"):
+                    self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+                else:
+                    self._client = mqtt.Client()
                 self._client.on_connect = self._on_connect
                 self._client.on_disconnect = self._on_disconnect
                 self._client.on_message = self._on_message
@@ -105,8 +127,7 @@ class DeyeMQTTClient:
                     _LOGGER.debug("MQTT: Using authentication (user: %s)", self.username)
 
             # Run connection in executor to avoid blocking
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
+            await self._loop.run_in_executor(
                 None, 
                 lambda: self._client.connect(self.broker_ip, self.broker_port, 60)
             )
@@ -142,24 +163,25 @@ class DeyeMQTTClient:
             try:
                 # Build and send request
                 request = self._build_request(start, count)
-                _LOGGER.debug("📤 MQTT: Requesting %s (Reg %d-%d)", block_name, start, start + count - 1)
-                
-                self._response_event.clear()
-                self._response_data = None
-                
-                self._client.publish(self.topic_request, request)
-                
-                # Wait for response (max 10 seconds)
-                try:
-                    await asyncio.wait_for(self._response_event.wait(), timeout=10.0)
-                except asyncio.TimeoutError:
-                    _LOGGER.error("❌ MQTT: Timeout waiting for %s", block_name)
-                    return None
-                
-                if self._response_data:
+                self._expected_len = count * 2
+
+                # One retry: EW11 occasionally drops a single request
+                for attempt in (1, 2):
+                    _LOGGER.debug("📤 MQTT: Requesting %s (Reg %d-%d), attempt %d",
+                                  block_name, start, start + count - 1, attempt)
+                    self._response_event.clear()
+                    self._response_data = None
+                    self._client.publish(self.topic_request, request)
+
+                    try:
+                        await asyncio.wait_for(self._response_event.wait(), timeout=10.0)
+                    except asyncio.TimeoutError:
+                        continue
+
                     _LOGGER.debug("📩 MQTT: Received %s (%d bytes)", block_name, len(self._response_data))
                     return self._response_data
-                
+
+                _LOGGER.warning("MQTT: Timeout waiting for %s", block_name)
                 return None
 
             except Exception as err:
