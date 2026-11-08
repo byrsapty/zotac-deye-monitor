@@ -5,7 +5,7 @@
  * Шрифт Fira Sans Condensed (SIL OFL) вбудований, працює без інтернету.
  */
 
-const VERSION = '3.1.1';
+const VERSION = '3.1.2';
 
 const SV = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
@@ -476,7 +476,7 @@ class ZotacEnergyFlowCard extends HTMLElement {
       });
     });
     const schEl = this.shadowRoot.querySelector('.sch');
-    if (schEl) schEl.addEventListener('click', () => this.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId: this._config.entities.outage }, bubbles: true, composed: true })));
+    if (schEl) schEl.addEventListener('click', () => this.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId: this._outageId || this._config.entities.outage }, bubbles: true, composed: true })));
     const busEl = this.shadowRoot.querySelector('.bus');
     if (busEl && this._config.bus_cycle === true) {
       busEl.style.cursor = 'pointer';
@@ -589,7 +589,13 @@ class ZotacEnergyFlowCard extends HTMLElement {
   _outage() {
     const el = this.shadowRoot.querySelector('.sch');
     if (!el) return;
-    const s = this._hass.states[this._config.entities.outage];
+    let s = this._hass.states[this._config.entities.outage];
+    // Svitlo.live називає сенсори мовою HA, тож вгаданий id часто не існує, або обрано календар чи інший сенсор черги.
+    // Тоді беремо сенсор, у якого є сам графік (атрибут today_48half).
+    if (!s || !Array.isArray(s.attributes.today_48half)) {
+      s = Object.values(this._hass.states).find((x) => x.entity_id.startsWith('sensor.') && Array.isArray(x.attributes.today_48half)) || null;
+    }
+    this._outageId = s && s.entity_id;
     const a = (s && s.attributes) || {};
     const today = Array.isArray(a.today_48half) ? a.today_48half : [];
     const slots = today.concat(Array.isArray(a.tomorrow_48half) && a.tomorrow_48half.length ? a.tomorrow_48half : Array(48).fill('unknown'));
@@ -597,17 +603,18 @@ class ZotacEnergyFlowCard extends HTMLElement {
     const nowMin = now.getHours() * 60 + now.getMinutes(), idx = Math.floor(nowMin / 30);
     const cur = a.now_status === 'on' || a.now_status === 'off' ? a.now_status : today[idx];
     const q = (sel) => el.querySelector(sel);
-    let cls = 'na', label = 'Графік відключень', big = 'Немає даних', sub = '';
+    let cls = 'na', label = 'Графік відключень', big = s ? 'Графік не опубліковано' : 'Сенсор Svitlo.live не знайдено', sub = '';
     if (s && s.state === 'Emergency') { cls = 'em'; label = 'Графік не діє'; big = 'Аварійні відключення'; }
     else if (today.length === 48 && (cur === 'on' || cur === 'off')) {
       let k = idx + 1;
       while (k < slots.length && slots[k] === cur) k++;
       cls = cur;
       label = cur === 'on' ? 'Наступне відключення' : 'Увімкнення за графіком';
-      if (k < slots.length && slots[k] !== 'unknown') {
-        const t = new Date(midnight.getTime() + k * 1800000);
-        big = (k >= 48 ? 'завтра ' : '') + `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
-        sub = 'через ' + fmtDur((t - now) / 60000);
+      if (k < slots.length) {
+        const t = new Date(midnight.getTime() + k * 1800000), hm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+        // Далі графік не опубліковано: відомо лише, що стан триватиме щонайменше до цього часу
+        if (slots[k] === 'unknown') { big = `не раніше ${hm}`; sub = 'далі графік ще не опубліковано'; }
+        else { big = (k >= 48 ? 'завтра ' : '') + hm; sub = 'через ' + fmtDur((t - now) / 60000); }
       } else big = cur === 'on' ? 'Не заплановано' : 'Невідомо';
     }
     el.className = 'sch ' + cls;
@@ -945,7 +952,7 @@ const ED = {
     ['flow_speed', 'Швидкість потоків', 'numf', '1 = звичайна, 0,5 повільніше, 2 швидше'],
   ],
   anim: [['animations', 'Увімкнути анімації', 'anim', 'Оберіть потрібні']],
-  outage: [['e_outage', 'Сенсор черги Svitlo.live', 'svitlo', 'Головний сенсор черги (назва закінчується на _electricity). Порожньо = блок не показується']],
+  outage: [['e_outage', 'Сенсор черги Svitlo.live', 'svitlo', 'Сенсор «Статус електроживлення» (англ. «Electricity») вашої черги. Порожньо = блок не показується']],
   mobile: [
     ['mobile_center', 'Центрувати картку на телефоні', 'bool'],
     ['mobile_fill', 'Розтягувати на весь екран на телефоні', 'bool'],
