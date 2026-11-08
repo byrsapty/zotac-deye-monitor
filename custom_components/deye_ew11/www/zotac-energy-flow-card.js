@@ -5,7 +5,7 @@
  * Шрифт Fira Sans Condensed (SIL OFL) вбудований, працює без інтернету.
  */
 
-const VERSION = '3.0.0';
+const VERSION = '3.1.0';
 
 const SV = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
@@ -17,6 +17,7 @@ const ICON = {
   gridoff: SV('<path d="M12 2.5L7 21.5M12 2.5l5 19M8.8 15.5h6.4M10 10.5h4M5 7.5h14M12 2.5v5"/><path d="M3.5 3.5l17 17" stroke-width="2"/>'),
   inverter: SV('<rect x="3" y="4" width="18" height="16" rx="3.4"/><path d="M6.5 8.5h4M13.5 8.5h4"/><path d="M6.2 14.5c1.6-3.4 3.2-3.4 4.8 0s3.2 3.4 4.8 0 1.6-1.7 2-1.7"/>'),
   bolt: SV('<path d="M13 2.5L5 13.5h6l-1 8 8-11h-6z"/>'),
+  clock: SV('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
 };
 
 const COL = {
@@ -376,6 +377,25 @@ class ZotacEnergyFlowCard extends HTMLElement {
         .ex span { display:block; font-size:max(10px,calc(2.4*var(--u))); color:#8a949c; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .ex b { display:block; font-size:max(13px,calc(3.5*var(--u))); font-weight:600; color:#e8ecef; white-space:nowrap; }
         .ex.warn b { color:#ff9a6b; }
+        .sch { --sc:#ffb547; cursor:pointer; margin-top:calc(2.2*var(--u)); padding:calc(1.6*var(--u)) calc(2*var(--u)) calc(1.4*var(--u)); border-radius:calc(2.4*var(--u));
+          background:linear-gradient(150deg,color-mix(in srgb,var(--sc) 9%,rgba(255,255,255,.04)),rgba(255,255,255,.025));
+          box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--sc) 22%,rgba(255,255,255,.05)); }
+        .sch.off, .sch.em { --sc:#ff4d5e; } .sch.na { --sc:#6b757d; }
+        .sch .sr { display:flex; align-items:center; gap:calc(1.8*var(--u)); }
+        .sch .chip { color:var(--sc); background:linear-gradient(145deg,color-mix(in srgb,var(--sc) 30%,#14181c),color-mix(in srgb,var(--sc) 10%,#14181c));
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 0 0 1px color-mix(in srgb,var(--sc) 40%,transparent); }
+        .sch .sm { min-width:0; flex:1; }
+        .sch .sm span { display:block; font-size:max(11px,calc(2.6*var(--u))); font-weight:500; color:#8a949c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .sch .sm b { font-size:max(20px,calc(5.6*var(--u))); font-weight:600; line-height:1.05; color:#f2f5f7; }
+        .sch .sm em { font-style:normal; font-size:max(12px,calc(3*var(--u))); font-weight:600; color:var(--sc); margin-left:calc(1.2*var(--u)); }
+        .sch .tot { text-align:right; font-size:max(10px,calc(2.4*var(--u))); font-weight:500; color:#8a949c; line-height:1.45; white-space:nowrap; }
+        .sch .tot b { color:#cfd6db; font-weight:600; }
+        .tl { position:relative; display:grid; grid-template-columns:repeat(48,minmax(0,1fr)); gap:max(1px,calc(.2*var(--u))); height:max(6px,calc(1.5*var(--u))); margin-top:calc(1.4*var(--u)); }
+        .tl i { border-radius:max(1px,calc(.3*var(--u))); background:rgba(111,220,154,.38); }
+        .tl i.off { background:#ff4d5e; box-shadow:0 0 calc(.8*var(--u)) rgba(255,77,94,.45); } .tl i.unknown { background:#2a3036; }
+        .tl .now { position:absolute; top:calc(-.6*var(--u)); bottom:calc(-.6*var(--u)); width:max(2px,calc(.4*var(--u))); margin-left:-1px; border-radius:2px;
+          background:#fff; box-shadow:0 0 calc(1*var(--u)) rgba(255,255,255,.7); }
+        .tk { display:flex; justify-content:space-between; margin-top:calc(.7*var(--u)); font-size:max(9px,calc(2.1*var(--u))); color:#6b757d; }
         .inv { grid-column:3; grid-row:1 / -1; margin:calc(.8*var(--u)) 0; border-radius:calc(3.4*var(--u)); padding:calc(2*var(--u)) 0 calc(1.8*var(--u));
           display:flex; flex-direction:column; align-items:center; gap:calc(1.1*var(--u)); position:relative; overflow:hidden;
           background:linear-gradient(180deg,rgba(255,255,255,.085),rgba(255,255,255,.02) 40%,rgba(255,255,255,.05));
@@ -438,6 +458,7 @@ class ZotacEnergyFlowCard extends HTMLElement {
           <div class="hd"><span class="lamp">${ICON.bolt}</span>
             <div><div class="head">–</div><div class="headsub"></div><span class="bypchip"></span></div></div>
           <div class="board"><div class="inv${c.show_bus === false ? ' nobus' : ''}${c.show_inverter_temp === false ? ' notemp' : ''}"><i class="chip">${ICON.inverter}</i><span class="nm">Інвертор</span><span class="byp"></span><div class="bus"></div><b class="bp"></b><b class="it"></b></div>${parts}</div>
+          ${c.entities.outage ? `<div class="sch na"><div class="sr"><i class="chip">${ICON.clock}</i><div class="sm"><span>Графік відключень</span><b>–</b><em></em></div><div class="tot"></div></div><div class="tl"></div><div class="tk"></div></div>` : ''}
           ${(c.extras && c.extras.length) ? `<div class="foot" style="--n:${c.extras.length <= 6 ? c.extras.length : Math.ceil(c.extras.length / 2)}">${c.extras.map((x, i) => `<div class="ex" data-i="${i}"><span>${x.name || x.entity}</span><b>–</b></div>`).join('')}</div>` : ''}
         </div></div>
       </ha-card>`;
@@ -454,6 +475,8 @@ class ZotacEnergyFlowCard extends HTMLElement {
         if (x) this.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId: x.entity }, bubbles: true, composed: true }));
       });
     });
+    const schEl = this.shadowRoot.querySelector('.sch');
+    if (schEl) schEl.addEventListener('click', () => this.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId: this._config.entities.outage }, bubbles: true, composed: true })));
     const busEl = this.shadowRoot.querySelector('.bus');
     if (busEl && this._config.bus_cycle === true) {
       busEl.style.cursor = 'pointer';
@@ -561,8 +584,50 @@ class ZotacEnergyFlowCard extends HTMLElement {
   }
   _text(id) { const s = id && this._hass && this._hass.states[id]; return s ? String(s.state) : ''; }
 
+  // Графік відключень із головного сенсора Svitlo.live (атрибути today_48half / tomorrow_48half: 48 слотів по 30 хв).
+  // ponytail: час рахується за годинником браузера, вважаємо, що він у тому ж часовому поясі, що й графік.
+  _outage() {
+    const el = this.shadowRoot.querySelector('.sch');
+    if (!el) return;
+    const s = this._hass.states[this._config.entities.outage];
+    const a = (s && s.attributes) || {};
+    const today = Array.isArray(a.today_48half) ? a.today_48half : [];
+    const slots = today.concat(Array.isArray(a.tomorrow_48half) && a.tomorrow_48half.length ? a.tomorrow_48half : Array(48).fill('unknown'));
+    const now = new Date(), midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const nowMin = now.getHours() * 60 + now.getMinutes(), idx = Math.floor(nowMin / 30);
+    const cur = a.now_status === 'on' || a.now_status === 'off' ? a.now_status : today[idx];
+    const q = (sel) => el.querySelector(sel);
+    let cls = 'na', label = 'Графік відключень', big = 'Немає даних', sub = '';
+    if (s && s.state === 'Emergency') { cls = 'em'; label = 'Графік не діє'; big = 'Аварійні відключення'; }
+    else if (today.length === 48 && (cur === 'on' || cur === 'off')) {
+      let k = idx + 1;
+      while (k < slots.length && slots[k] === cur) k++;
+      cls = cur;
+      label = cur === 'on' ? 'Наступне відключення' : 'Увімкнення за графіком';
+      if (k < slots.length && slots[k] !== 'unknown') {
+        const t = new Date(midnight.getTime() + k * 1800000);
+        big = (k >= 48 ? 'завтра ' : '') + `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+        sub = 'через ' + fmtDur((t - now) / 60000);
+      } else big = cur === 'on' ? 'Не заплановано' : 'Невідомо';
+    }
+    el.className = 'sch ' + cls;
+    q('.sm span').textContent = label; q('.sm b').textContent = big; q('.sm em').textContent = sub;
+    const hrs = (v) => (v !== null && v !== undefined && Number.isFinite(Number(v)) ? `${String(Number(v)).replace('.', ',')} год` : '—');
+    q('.tot').innerHTML = today.length ? `Сьогодні без світла <b>${hrs(a.today_outage_hours)}</b>` + (a.tomorrow_outage_hours !== null && a.tomorrow_outage_hours !== undefined ? `<br>Завтра <b>${hrs(a.tomorrow_outage_hours)}</b>` : '') : '';
+    // Смужка: 24 години від початку поточної години
+    const start = Math.floor(nowMin / 60) * 2, win = slots.slice(start, start + 48);
+    const tl = q('.tl'), key = win.join() + start;
+    if (tl._key !== key) {
+      tl._key = key;
+      tl.innerHTML = today.length ? win.map((v) => `<i class="${v === 'off' || v === 'unknown' ? v : ''}"></i>`).join('') + '<b class="now"></b>' : '';
+      q('.tk').innerHTML = today.length ? [0, 6, 12, 18, 24].map((h) => `<span>${String((start / 2 + h) % 24).padStart(2, '0')}:00</span>`).join('') : '';
+    }
+    const nw = q('.tl .now'); if (nw) nw.style.left = `${((nowMin - start * 30) / 1440) * 100}%`;
+  }
+
   _update() {
     const c = this._config, e = c.entities, min = c.min_power, root = this.shadowRoot;
+    if (e.outage) this._outage();
     const f = computeFlows({
       pv: this._num(e.pv), generator: this._num(e.generator), grid: this._num(e.grid),
       battery: this._num(e.battery), load: this._num(e.load),
@@ -845,6 +910,7 @@ const ED = {
     ['e_grid_voltage', 'Напруга мережі (визначає «Світла немає»)', 'entity'], ['e_grid_frequency', 'Частота мережі', 'entity'],
     ['e_generator', 'Потужність генератора', 'entity'], ['e_generator_status', 'Статус генератора', 'entity'],
     ['e_pv', 'Потужність сонця (PV)', 'entity'], ['e_inverter_temp', 'Температура інвертора', 'entity'],
+    ['e_outage', 'Графік відключень (Svitlo.live, сенсор «Electricity»)', 'entity'],
   ],
   options: [
     ['title', 'Заголовок картки', 'text'],

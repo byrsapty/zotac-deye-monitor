@@ -11,7 +11,11 @@
 Підтримує **Modbus TCP** (пряме підключення) та **MQTT** (через брокер) протоколи.
 
 > [!NOTE]
-> ## 🆕 Що нового у 2.2.0
+> ## 🆕 Що нового у 2.3.0
+>
+> - 🕒 **Графік відключень у панелі** (опційно). Якщо встановлена інтеграція [Svitlo.live](https://github.com/chaichuk/svitlo_live), під схемою показується наступне відключення з відліком часу, години без світла сьогодні/завтра і смужка графіка на 24 години. Вмикається одним рядком `outage:` у картці (див. пресет нижче).
+>
+> ### 2.2.0
 >
 > - 🖥️ **Вбудована панель потоків енергії [ZOTAC Energy Flow Card](https://github.com/byrsapty/zotac-deye-monitor/blob/main/docs/energy-flow-card.md).** Картка тепер входить в інтеграцію і підключається на всіх дашбордах автоматично: копіювати файл у `/config/www/` і додавати ресурс вручну більше не потрібно. Готовий пресет для Deye SUN-6K у розділі «Панель потоків енергії» нижче.
 > - 🛠️ **MQTT стабільніший** (з 2.1.1): виправлено втрату відповідей від EW11 (помилки «Timeout waiting for Block 2»), відкидаються запізнілі відповіді від попереднього блоку, один повтор запиту перед попередженням.
@@ -99,6 +103,8 @@ entities:
   generator_status: sensor.deye_sun_6k_generator_status
   pv: sensor.deye_sun_6k_pv_power
   inverter_temp: sensor.deye_sun_6k_dc_temperature
+  # Графік відключень, якщо встановлено Svitlo.live (замініть на сенсор своєї черги)
+  outage: sensor.svitlo_kyiv_1_1_electricity
 battery_capacity_kwh: 16
 battery_min_soc: 10
 hide_when_zero:
@@ -150,6 +156,8 @@ numbers_fps: 30
 ```
 
 > Блок «Сонце» ховається, поки PV видає 0 Вт (`hide_when_zero: [pv]`). Якщо панелей немає, рядок `pv:` можна видалити.
+>
+> Рядок `outage:` потрібен лише з інтеграцією [Svitlo.live](https://github.com/chaichuk/svitlo_live): вкажіть її сенсор `…_electricity` для своєї черги (Налаштування → Пристрої → Svitlo). Без Svitlo.live видаліть цей рядок.
 
 ---
 
