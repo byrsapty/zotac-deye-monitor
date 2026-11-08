@@ -5,7 +5,7 @@
  * Шрифт Fira Sans Condensed (SIL OFL) вбудований, працює без інтернету.
  */
 
-const VERSION = '3.1.0';
+const VERSION = '3.1.1';
 
 const SV = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
@@ -907,23 +907,22 @@ const ED = {
   sensors: [
     ['e_load', 'Навантаження дому *', 'entity'], ['e_battery', 'Потужність АКБ', 'entity'], ['e_soc', 'Заряд АКБ, %', 'entity'],
     ['e_battery_runtime', 'Час роботи/заряду АКБ', 'entity'], ['e_grid', 'Потужність мережі', 'entity'],
-    ['e_grid_voltage', 'Напруга мережі (визначає «Світла немає»)', 'entity'], ['e_grid_frequency', 'Частота мережі', 'entity'],
+    ['e_grid_voltage', 'Напруга мережі', 'entity', 'Визначає стан «Світла немає»'], ['e_grid_frequency', 'Частота мережі', 'entity'],
     ['e_generator', 'Потужність генератора', 'entity'], ['e_generator_status', 'Статус генератора', 'entity'],
     ['e_pv', 'Потужність сонця (PV)', 'entity'], ['e_inverter_temp', 'Температура інвертора', 'entity'],
-    ['e_outage', 'Графік відключень (Svitlo.live, сенсор «Electricity»)', 'entity'],
   ],
   options: [
     ['title', 'Заголовок картки', 'text'],
-    ['battery_capacity_kwh', 'Ємність АКБ, кВт·год (для розрахунку часу)', 'number'],
-    ['max_power', 'Максимальна потужність, Вт (шкала швидкості потоків)', 'number'],
+    ['battery_capacity_kwh', 'Ємність АКБ, кВт·год', 'number', 'Для розрахунку часу до розряду/заряду'],
+    ['max_power', 'Максимальна потужність, Вт', 'number', 'Шкала швидкості потоків'],
     ['min_power', 'Поріг активності, Вт', 'number'],
-    ['battery_min_soc', 'Рахувати час розряду до, % (напр. 15; 0 = до повного розряду)', 'number'],
-    ['battery_max_soc', 'Рахувати час заряду до, % (100 = до повного)', 'number'],
+    ['battery_min_soc', 'Час розряду до, %', 'number', 'Напр. 15. 0 = до повного розряду'],
+    ['battery_max_soc', 'Час заряду до, %', 'number', '100 = до повного заряду'],
     ['battery_marks', 'Риски меж розряду/заряду на шкалі АКБ', 'bool'],
-    ['battery_level_colors', 'Колір шкали АКБ за рівнем заряду (жовтий/червоний)', 'bool'],
-    ['stale_minutes', 'Через скільки хвилин без оновлень дані застарілі (0 = вимкнути)', 'number'],
+    ['battery_level_colors', 'Колір шкали АКБ за рівнем заряду', 'bool', 'Жовтий нижче 50%, червоний нижче 20%'],
+    ['stale_minutes', 'Дані застарілі через, хв', 'number', 'Скільки хвилин без оновлень. 0 = не перевіряти'],
     ['inverter_temp_warn', 'Перегрів інвертора, °C', 'number'],
-    ['inverter_temp_decimals', 'Знаків після коми у температурі інвертора', 'number'],
+    ['inverter_temp_decimals', 'Знаків після коми (температура)', 'number'],
     ['battery_invert', 'Інвертувати знак АКБ', 'bool'],
     ['grid_invert', 'Інвертувати знак мережі', 'bool'],
     ['hide_when_zero', 'Ховати блок, коли потужність нуль', 'multi'],
@@ -932,20 +931,21 @@ const ED = {
     ['show_bus', 'Показувати смужку на інверторі', 'bool'],
     ['bus_mode', 'Режим смужки', 'busmode'],
     ['bus_cycle', 'Перемикати режим кліком по смужці', 'bool'],
-    ['bus_label', 'Число під смужкою (потужність або %)', 'bool'],
-    ['inverter_power', 'Номінальна потужність інвертора, Вт (для «Завантаження»)', 'number'],
-    ['bypass_current_a', 'Струм байпаса, А (напр. 40; порожньо = не враховувати)', 'number'],
+    ['bus_label', 'Число під смужкою', 'bool', 'Потужність або %'],
+    ['inverter_power', 'Потужність інвертора, Вт', 'number', 'Номінальна, для режиму «Завантаження»'],
+    ['bypass_current_a', 'Струм байпаса, А', 'number', 'Напр. 40. Порожньо = не враховувати'],
     ['bypass_badge', 'Значок bypass', 'bypbadge'],
-    ['bypass_voltage', 'Напруга для розрахунку байпаса, В (порожньо = напруга мережі)', 'number'],
+    ['bypass_voltage', 'Напруга байпаса, В', 'number', 'Порожньо = напруга мережі'],
     ['show_inverter_temp', 'Показувати температуру під смужкою', 'bool'],
   ],
   flow: [
     ['flow_style', 'Вигляд потоків енергії', 'flowstyle'],
-    ['numbers_fps', 'Кадрів/с прокрутки цифр (60 за замовчуванням, на моніторі 60 Гц реально 60 або 30; діє лише під час зміни числа)', 'number'],
-    ['flow_fps', 'Кадрів/с руху потоків (30 за замовчуванням; менше = менше навантаження на відеокарту; 0 = плавно на кожен кадр монітора)', 'number'],
-    ['flow_speed', 'Швидкість потоків (1 = звичайна, 0,5 повільніше, 2 швидше)', 'numf'],
+    ['numbers_fps', 'Кадрів/с прокрутки цифр', 'number', 'За замовчуванням 60. Діє лише під час зміни числа; на моніторі 60 Гц реально 60 або 30'],
+    ['flow_fps', 'Кадрів/с руху потоків', 'number', 'За замовчуванням 30. Менше = менше навантаження на відеокарту; 0 = на кожен кадр монітора'],
+    ['flow_speed', 'Швидкість потоків', 'numf', '1 = звичайна, 0,5 повільніше, 2 швидше'],
   ],
-  anim: [['animations', 'Увімкнути анімації (оберіть потрібні)', 'anim']],
+  anim: [['animations', 'Увімкнути анімації', 'anim', 'Оберіть потрібні']],
+  outage: [['e_outage', 'Сенсор черги Svitlo.live', 'svitlo', 'Головний сенсор черги (назва закінчується на _electricity). Порожньо = блок не показується']],
   mobile: [
     ['mobile_center', 'Центрувати картку на телефоні', 'bool'],
     ['mobile_fill', 'Розтягувати на весь екран на телефоні', 'bool'],
@@ -966,6 +966,7 @@ const EXTRA_LABELS = { entity: 'Сенсор', name: 'Підпис', unit: 'Од
 function edSchema(fields) {
   return fields.map(([name, , t]) => {
     if (t === 'entity') return { name, selector: { entity: {} } };
+    if (t === 'svitlo') return { name, selector: { entity: { filter: { integration: 'svitlo_live', domain: 'sensor' } } } };
     if (t === 'text') return { name, selector: { text: {} } };
     if (t === 'number') return { name, selector: { number: { mode: 'box', min: 0 } } };
     if (t === 'bool') return { name, selector: { boolean: {} } };
@@ -1037,6 +1038,8 @@ class ZotacEnergyFlowCardEditor extends HTMLElement {
     f.hass = this._hass; f.schema = edSchema(fields);
     const labels = Object.fromEntries(fields.map(([n, l]) => [n, l]));
     f.computeLabel = (sch) => labels[sch.name] || sch.name;
+    const helpers = Object.fromEntries(fields.filter((x) => x[3]).map(([n, , , h]) => [n, h]));
+    f.computeHelper = (sch) => helpers[sch.name];
     f.data = this._flat();
     f.addEventListener('value-changed', (ev) => {
       ev.stopPropagation();
@@ -1081,6 +1084,7 @@ class ZotacEnergyFlowCardEditor extends HTMLElement {
     sec('Інвертор', ED.inverter, 'Смужка в центрі схеми: режими «Джерела», «Завантаження», «Звідки / куди», «Температура».');
     sec('Потоки енергії', ED.flow);
     sec('Анімації', ED.anim, 'За замовчуванням усе вимкнено. Під налаштуванням системи «зменшити рух» анімації не вмикаються.');
+    sec('Графік відключень (Svitlo.live)', ED.outage, 'Необовʼязково. Потрібна інтеграція Svitlo.live: під схемою зʼявиться наступне відключення з відліком часу і смужка графіка на 24 години.');
     sec('Телефон', ED.mobile);
     sec('Назви блоків', ED.names);
     this._renderExtras();
