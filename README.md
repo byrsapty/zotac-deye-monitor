@@ -10,6 +10,16 @@
 Інтеграція для моніторингу **гібридних інверторів Deye** через **WiFi донгл EW11**.
 Підтримує **Modbus TCP** (пряме підключення) та **MQTT** (через брокер) протоколи.
 
+> [!NOTE]
+> ## 🆕 Що нового у 2.2.0
+>
+> - 🖥️ **Вбудована панель потоків енергії [ZOTAC Energy Flow Card](https://github.com/byrsapty/zotac-deye-monitor/blob/main/docs/energy-flow-card.md).** Картка тепер входить в інтеграцію і підключається на всіх дашбордах автоматично: копіювати файл у `/config/www/` і додавати ресурс вручну більше не потрібно. Готовий пресет для Deye SUN-6K у розділі «Панель потоків енергії» нижче.
+> - 🛠️ **MQTT стабільніший** (з 2.1.1): виправлено втрату відповідей від EW11 (помилки «Timeout waiting for Block 2»), відкидаються запізнілі відповіді від попереднього блоку, один повтор запиту перед попередженням.
+> - 🎨 Власні іконки інтеграції в папці `brand/` (HA 2026.3+).
+> - ⚠️ Мінімальна версія Home Assistant тепер **2024.7**.
+>
+> Якщо раніше ви підключали картку вручну, видаліть ресурс `/local/zotac-energy-flow-card.js` (Налаштування → Інформаційні панелі → ⋮ → Ресурси) і сам файл з `/config/www/`.
+
 ---
 
 ## ✨ Особливості
@@ -62,6 +72,84 @@
 - День: Експорт в мережу (kWh)
 - День: Споживання будинку (kWh)
 - День: Вироблено PV (kWh)
+
+---
+
+## 🖥️ Панель потоків енергії
+
+Разом з інтеграцією встановлюється картка **ZOTAC Energy Flow**: генератор, мережа й сонце зліва, шина інвертора по центру, дім і АКБ справа. Шина забарвлюється тим джерелом, що реально живить будинок, а при відсутності світла картка показує «Світла немає».
+
+Додати: режим «Змінити» → **Додати картку** → **ZOTAC Energy Flow** (або «Ручна» і вставити YAML нижче). Усі параметри описані в [документації картки](https://github.com/byrsapty/zotac-deye-monitor/blob/main/docs/energy-flow-card.md).
+
+### Пресет для Deye SUN-6K (АКБ 16 кВт·год)
+
+Назви сенсорів `sensor.deye_sun_6k_*` відповідають пристрою з назвою **Deye SUN 6K**. Якщо ваш пристрій названо інакше, замініть префікс (знайти точні назви можна в Налаштування → Пристрої → ваш інвертор). Ємність АКБ (`battery_capacity_kwh`) і потужність інвертора (`inverter_power`) вкажіть свої.
+
+```yaml
+type: custom:zotac-energy-flow-card
+entities:
+  load: sensor.deye_sun_6k_load_power
+  battery: sensor.deye_sun_6k_battery_power
+  soc: sensor.deye_sun_6k_battery_soc
+  battery_runtime: sensor.deye_sun_6k_battery_runtime
+  grid: sensor.deye_sun_6k_grid_power
+  grid_voltage: sensor.deye_sun_6k_grid_voltage
+  grid_frequency: sensor.deye_sun_6k_grid_frequency
+  generator: sensor.deye_sun_6k_generator_power
+  generator_status: sensor.deye_sun_6k_generator_status
+  pv: sensor.deye_sun_6k_pv_power
+  inverter_temp: sensor.deye_sun_6k_dc_temperature
+battery_capacity_kwh: 16
+battery_min_soc: 10
+hide_when_zero:
+  - pv
+extras:
+  - name: Струм AC
+    entity: sensor.deye_sun_6k_inverter_current
+    unit: A
+  - name: DC Temp
+    entity: sensor.deye_sun_6k_dc_temperature
+    unit: °C
+    warn_above: 65
+  - name: AC Temp
+    entity: sensor.deye_sun_6k_ac_temperature
+    unit: °C
+    warn_above: 60
+  - name: АКБ вольти
+    entity: sensor.deye_sun_6k_battery_voltage
+    unit: V
+    decimals: 2
+  - name: АКБ ампери
+    entity: sensor.deye_sun_6k_battery_current
+    unit: A
+  - name: АКБ Temp
+    entity: sensor.deye_sun_6k_battery_temp
+    unit: °C
+    warn_above: 45
+grid_options:
+  columns: full
+battery_invert: false
+grid_invert: false
+battery_marks: false
+battery_level_colors: true
+show_bus: true
+bus_cycle: true
+bus_label: true
+show_inverter_temp: false
+animations:
+  - battery
+  - bus
+bus_mode: sources
+inverter_power: 6000
+flow_style: arrows
+bypass_current_a: 40
+bypass_badge: inverter
+flow_fps: 30
+flow_speed: 2
+numbers_fps: 30
+```
+
+> Блок «Сонце» ховається, поки PV видає 0 Вт (`hide_when_zero: [pv]`). Якщо панелей немає, рядок `pv:` можна видалити.
 
 ---
 
@@ -125,7 +213,7 @@
 
 ---
 
-## � Протоколи підключення
+## 🔌 Протоколи підключення
 
 Інтеграція підтримує **два протоколи** для роботи з EW11. Виберіть той, що вам підходить:
 
@@ -246,7 +334,7 @@ logins:
 
 ---
 
-## �🔧 Сумісність
+## 🔧 Сумісність
 
 ### Перевірені моделі інверторів:
 - ✅ Deye SUN-5K-SG03LP1-EU
@@ -255,7 +343,7 @@ logins:
 - ✅ (Більшість гібридних моделей Deye з підтримкою EW11)
 
 ### Вимоги:
-- Home Assistant 2024.1.0 або новіше
+- Home Assistant 2024.7.0 або новіше
 - WiFi донгл EW11 підключений до інвертора
 - Локальна мережа (інтеграція працює через Modbus TCP)
 

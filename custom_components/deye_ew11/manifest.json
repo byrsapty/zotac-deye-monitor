@@ -1,7 +1,7 @@
 {
   "domain": "deye_ew11",
   "name": "Deye EW11 Inverter",
-  "version": "2.1.3",
+  "version": "2.2.0",
   "codeowners": [
     "@byrsapty"
   ],
@@ -9,6 +9,6 @@
   "issue_tracker": "https://github.com/byrsapty/zotac-deye-monitor/issues",
   "iot_class": "local_polling",
   "requirements": [],
-  "dependencies": [],
+  "dependencies": ["frontend", "http"],
   "config_flow": true
 }

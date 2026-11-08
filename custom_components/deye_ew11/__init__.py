@@ -2,10 +2,14 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
+from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.loader import async_get_integration
 
 from .const import DOMAIN
 from .coordinator import DeyeCoordinator
@@ -14,9 +18,18 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.SENSOR]
 
+CARD_FILE = "zotac-energy-flow-card.js"
+CARD_URL = f"/{DOMAIN}/{CARD_FILE}"
+
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Set up component (YAML config - unused)."""
+    """Serve the bundled energy flow card and load it on every dashboard."""
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(CARD_URL, str(Path(__file__).parent / "www" / CARD_FILE), True)]
+    )
+    # Integration version busts the browser cache after each update
+    integration = await async_get_integration(hass, DOMAIN)
+    add_extra_js_url(hass, f"{CARD_URL}?v={integration.version}")
     return True
 
 
