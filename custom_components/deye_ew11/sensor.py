@@ -25,8 +25,19 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY, DOMAIN
 from .coordinator import DeyeCoordinator
+from .runtime import battery_runtime, format_hours
 
 _LOGGER = logging.getLogger(__name__)
+
+def _runtime_estimate(data, capacity):
+    """(mode, hours) for the Battery Runtime sensor, see runtime.battery_runtime."""
+    return battery_runtime(data.get("battery_soc"), data.get("battery_power"), data.get("load_power"), capacity)
+
+
+def _runtime_text(data, capacity):
+    est = _runtime_estimate(data, capacity)
+    return format_hours(est[1]) if est else None
+
 
 # Definition of all sensors
 SENSOR_TYPES = [
@@ -79,22 +90,7 @@ SENSOR_TYPES = [
     ("Battery Capacity", "battery_capacity", UnitOfEnergy.KILO_WATT_HOUR, SensorDeviceClass.ENERGY, None, "mdi:battery-sync", lambda d, c: c),
     ("Battery Remaining", "battery_remaining", UnitOfEnergy.KILO_WATT_HOUR, SensorDeviceClass.ENERGY, None, "mdi:battery-charging", 
      lambda d, c: round((c * d.get("battery_soc", 0) / 100), 2) if c > 0 and d.get("battery_soc", 0) > 0 else 0),
-    ("Battery Runtime", "battery_runtime", None, None, None, "mdi:clock-outline",
-     lambda d, c: (
-         (lambda val: 
-              f"{int(val * 60)} хв" if val < 1 else 
-              f"{int(val)} год {int((val % 1) * 60)} хв" if (val % 1) * 60 >= 1 else 
-              f"{int(val)} год"
-         )(
-             # Inner logic: Standardize to HOURS first
-             # If CHARGING (power < 0, negative): Time to FULL
-             round(((c - (c * d.get("battery_soc", 0) / 100)) * 1000) / abs(d.get("battery_power", 1)), 2)
-             if d.get("battery_power", 0) < -10 else 
-             # If DISCHARGING (power >= 0, positive): Time to EMPTY
-             round(((c * d.get("battery_soc", 0) / 100) * 1000) / d.get("load_power", 1), 2)
-             if d.get("load_power", 0) > 50 else 0
-         )
-     )),
+    ("Battery Runtime", "battery_runtime", None, None, None, "mdi:clock-outline", _runtime_text),
 ]
 
 
@@ -152,6 +148,14 @@ class DeyeSensor(CoordinatorEntity[DeyeCoordinator], SensorEntity):
         if not self.coordinator.data:
             return None
         return self._value_fn(self.coordinator.data, self._battery_capacity)
+
+    @property
+    def extra_state_attributes(self):
+        """Battery Runtime: what the text means (charge/discharge/reserve) and the raw hours."""
+        if self._key != "battery_runtime" or not self.coordinator.data:
+            return None
+        est = _runtime_estimate(self.coordinator.data, self._battery_capacity)
+        return {"mode": est[0], "hours": round(est[1], 2)} if est else {"mode": None, "hours": None}
 
     @property
     def available(self) -> bool:

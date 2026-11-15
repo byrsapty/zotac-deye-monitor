@@ -5,7 +5,7 @@
  * Шрифт Fira Sans Condensed (SIL OFL) вбудований, працює без інтернету.
  */
 
-const VERSION = '3.3.2';
+const VERSION = '3.3.3';
 
 const SV = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
@@ -591,30 +591,43 @@ class ZotacEnergyFlowCard extends HTMLElement {
   // Час до заряду/розряду: з сенсора або розрахунок за ємністю
   _limits() { const c = this._config; return { min: Math.max(0, Math.min(99, c.battery_min_soc || 0)), max: Math.max(1, Math.min(100, c.battery_max_soc || 100)) }; }
   _rtLabel(charge, discharge) {
-    const { min, max } = this._limits();
+    // Свої межі (до 15%, до 90%) картка рахує лише з ємністю АКБ; без неї число з сенсора — до повного розряду/заряду
+    const { min, max } = this._config.battery_capacity_kwh ? this._limits() : { min: 0, max: 100 };
     return discharge ? (min > 0 ? `до ${min}%` : 'до розряду') : charge ? (max < 100 ? `до ${max}%` : 'до повного') : 'запас';
   }
   _runtime(f, soc, charge, discharge) {
     const c = this._config, e = c.entities;
     const { min, max } = this._limits();
-    // Свої межі заряду (напр. рахувати до 15%) — сенсор Deye їх не знає, тому рахуємо самі за ємністю
-    if (c.battery_capacity_kwh && ((discharge && min > 0) || (charge && max < 100))) {
-      const w = Math.abs(f.battery);
+    // Свої межі (напр. розряд до 15%) — сенсор Deye їх не знає, тому рахуємо самі за ємністю.
+    // Запас в очікуванні теж рахуємо до межі розряду: інвертор зупиниться на ній, а не на 0%.
+    const idle = !charge && !discharge;
+    if (c.battery_capacity_kwh && ((discharge && min > 0) || (charge && max < 100) || (idle && min > 0))) {
+      const w = idle ? f.load : Math.abs(f.battery);
       const pct = charge ? max - soc : soc - min;
       if (pct <= 0) return 'досягнуто';
+      if (!(w >= (idle ? 50 : this._config.min_power))) return '';
       return fmtDur((pct / 100 * c.battery_capacity_kwh * 1000) / w * 60);
     }
-    let rt = this._text(e.battery_runtime);
+    // Сенсор часу роботи. Інтеграція Deye EW11 (2.5.3+) додає атрибути mode (charge / discharge / reserve) і hours.
+    // Значення беремо, лише якщо воно про той самий стан, що й картка: інакше підпис і число розходяться («запас 0 хв»).
+    const want = charge ? 'charge' : discharge ? 'discharge' : 'reserve';
     const rst = e.battery_runtime && this._hass.states[e.battery_runtime];
-    if (!rt || ['unknown', 'unavailable', 'none', '0'].includes(rt.toLowerCase())) rt = '';
-    else if (/^-?\d+([.,]\d+)?$/.test(rt)) {
-      const u = ((rst.attributes && rst.attributes.unit_of_measurement) || '').toLowerCase();
-      const mins = u.startsWith('h') || u.startsWith('г') ? parseFloat(rt) * 60 : u.startsWith('s') || u.startsWith('с') ? parseFloat(rt) / 60 : parseFloat(rt);
-      rt = fmtDur(mins);
+    const a = (rst && rst.attributes) || {};
+    let rt = '';
+    if (rst && (a.mode === undefined || a.mode === want)) {
+      const t = String(rst.state).trim();
+      if (Number(a.hours) > 0) rt = fmtDur(Number(a.hours) * 60);
+      else if (/^-?\d+([.,]\d+)?$/.test(t)) {
+        const n = parseFloat(t.replace(',', '.')), u = String(a.unit_of_measurement || '').toLowerCase();
+        const mins = u.startsWith('h') || u.startsWith('г') ? n * 60 : u.startsWith('s') || u.startsWith('с') ? n / 60 : n;
+        rt = mins > 0 ? fmtDur(mins) : '';
+      } else if (/[1-9]/.test(t) && !['unknown', 'unavailable', 'none'].includes(t.toLowerCase())) rt = t; // «5 год 10 хв»; «0 хв» відкидаємо
     }
-    if (!rt && c.battery_capacity_kwh && (charge || discharge)) {
-      const w = Math.abs(f.battery);
-      rt = fmtDur(((charge ? (100 - soc) : soc) / 100 * c.battery_capacity_kwh * 1000) / w * 60);
+    // Придатного значення сенсора немає — рахуємо самі з ємності: заряд/розряд за потужністю АКБ, запас за навантаженням дому
+    if (!rt && Number(c.battery_capacity_kwh) > 0) {
+      const w = charge || discharge ? Math.abs(f.battery) : f.load;
+      const pct = charge ? 100 - soc : soc;
+      if (pct > 0 && w >= (charge || discharge ? this._config.min_power : 50)) rt = fmtDur(pct / 100 * c.battery_capacity_kwh * 1000 / w * 60);
     }
     return rt;
   }
@@ -1033,66 +1046,80 @@ class ZotacEnergyFlowCard extends HTMLElement {
 
 /* ───────────── Візуальний редактор (налаштування прямо в панелі) ───────────── */
 const ED = {
-  sensors: [
-    ['e_load', 'Навантаження дому *', 'entity'], ['e_battery', 'Потужність АКБ', 'entity'], ['e_soc', 'Заряд АКБ, %', 'entity'],
-    ['e_battery_runtime', 'Час роботи/заряду АКБ', 'entity'], ['e_grid', 'Потужність мережі', 'entity'],
-    ['e_grid_voltage', 'Напруга мережі', 'entity', 'Визначає стан «Світла немає»'], ['e_grid_frequency', 'Частота мережі', 'entity'],
-    ['e_generator', 'Потужність генератора', 'entity'], ['e_generator_status', 'Статус генератора', 'entity'],
-    ['e_pv', 'Потужність сонця (PV)', 'entity'], ['e_inverter_temp', 'Температура інвертора', 'entity'],
+  main: [
+    ['e_load', 'Навантаження дому *', 'entity', 'Обовʼязково'],
+    ['e_battery', 'Потужність АКБ', 'entity'],
+    ['e_soc', 'Заряд АКБ, %', 'entity'],
+    ['e_grid', 'Потужність мережі', 'entity'],
+    ['e_grid_voltage', 'Напруга мережі', 'entity', 'Визначає стан «Світла немає»'],
   ],
-  options: [
-    ['title', 'Заголовок картки', 'text'],
-    ['battery_capacity_kwh', 'Ємність АКБ, кВт·год', 'number', 'Для розрахунку часу до розряду/заряду'],
-    ['max_power', 'Максимальна потужність, Вт', 'number', 'Шкала швидкості потоків'],
-    ['min_power', 'Поріг активності, Вт', 'number'],
-    ['battery_min_soc', 'Час розряду до, %', 'number', 'Напр. 15. 0 = до повного розряду'],
-    ['battery_max_soc', 'Час заряду до, %', 'number', '100 = до повного заряду'],
-    ['battery_marks', 'Риски меж розряду/заряду на шкалі АКБ', 'bool'],
-    ['battery_level_colors', 'Колір шкали АКБ за рівнем заряду', 'bool', 'Жовтий нижче 50%, червоний нижче 20%'],
-    ['stale_minutes', 'Дані застарілі через, хв', 'number', 'Скільки хвилин без оновлень. 0 = не перевіряти'],
-    ['inverter_temp_warn', 'Перегрів інвертора, °C', 'number'],
-    ['inverter_temp_decimals', 'Знаків після коми (температура)', 'number'],
-    ['battery_invert', 'Інвертувати знак АКБ', 'bool'],
-    ['grid_invert', 'Інвертувати знак мережі', 'bool'],
-    ['hide_when_zero', 'Ховати блок, коли потужність нуль', 'multi'],
-  ],
-  inverter: [
-    ['show_bus', 'Показувати смужку на інверторі', 'bool'],
-    ['bus_mode', 'Режим смужки', 'busmode'],
-    ['bus_cycle', 'Перемикати режим кліком по смужці', 'bool'],
-    ['bus_label', 'Число під смужкою', 'bool', 'Потужність або %'],
-    ['inverter_power', 'Потужність інвертора, Вт', 'number', 'Номінальна, для режиму «Завантаження»'],
-    ['bypass_current_a', 'Струм байпаса, А', 'number', 'Напр. 40. Порожньо = не враховувати'],
-    ['bypass_badge', 'Значок bypass', 'bypbadge'],
-    ['bypass_voltage', 'Напруга байпаса, В', 'number', 'Порожньо = напруга мережі'],
-    ['show_inverter_temp', 'Показувати температуру під смужкою', 'bool'],
-  ],
-  flow: [
-    ['flow_style', 'Вигляд потоків енергії', 'flowstyle'],
-    ['numbers_fps', 'Кадрів/с прокрутки цифр', 'number', 'За замовчуванням 60. Діє лише під час зміни числа; на моніторі 60 Гц реально 60 або 30'],
-    ['flow_fps', 'Кадрів/с руху потоків', 'number', 'За замовчуванням 30. Менше = менше навантаження на відеокарту; 0 = на кожен кадр монітора'],
-    ['flow_speed', 'Швидкість потоків', 'numf', '1 = звичайна, 0,5 повільніше, 2 швидше'],
-  ],
-  anim: [['animations', 'Увімкнути анімації', 'anim', 'Оберіть потрібні']],
-  strings: [
+  pv: [
+    ['e_pv', 'Потужність сонця (загальна)', 'entity', 'Порожньо = сума рядків PV1–PV4'],
     ['e_pv1', 'PV1, потужність', 'entity'], ['e_pv1_voltage', 'PV1, напруга', 'entity'],
     ['e_pv2', 'PV2, потужність', 'entity'], ['e_pv2_voltage', 'PV2, напруга', 'entity'],
     ['e_pv3', 'PV3, потужність', 'entity'], ['e_pv3_voltage', 'PV3, напруга', 'entity'],
     ['e_pv4', 'PV4, потужність', 'entity'], ['e_pv4_voltage', 'PV4, напруга', 'entity'],
   ],
+  generator: [
+    ['e_generator', 'Потужність генератора', 'entity'],
+    ['e_generator_status', 'Статус генератора', 'entity'],
+  ],
+  battery: [
+    ['battery_capacity_kwh', 'Ємність, кВт·год', 'number', 'Для розрахунку часу до розряду/заряду'],
+    ['battery_min_soc', 'Розряд до, %', 'number', 'Напр. 15: час розряду і запас рахуються до цієї межі (потрібна ємність). 0 = до повного розряду'],
+    ['battery_max_soc', 'Заряд до, %', 'number', 'Час заряду рахується до цієї межі (потрібна ємність). 100 = до повного'],
+    ['e_battery_runtime', 'Сенсор часу роботи/заряду', 'entity', 'Порожньо = картка рахує з ємності'],
+    ['battery_marks', 'Риски меж на шкалі', 'bool', 'Позначки «розряд до» / «заряд до»'],
+    ['battery_level_colors', 'Колір шкали за рівнем', 'bool', 'Жовтий нижче 50%, червоний нижче 20%'],
+    ['battery_invert', 'Інвертувати знак', 'bool', 'Якщо заряд показується як розряд'],
+  ],
+  grid: [
+    ['e_grid_frequency', 'Частота мережі', 'entity'],
+    ['grid_invert', 'Інвертувати знак', 'bool', 'Якщо імпорт показується як віддача'],
+  ],
   day: [
-    ['e_day_pv', 'Сонце за день', 'entity'], ['e_day_grid_import', 'Імпорт з мережі за день', 'entity'],
-    ['e_day_grid_export', 'Експорт у мережу за день', 'entity'], ['e_day_load', 'Споживання дому за день', 'entity'],
-    ['e_day_battery_charge', 'Заряд АКБ за день', 'entity'], ['e_day_battery_discharge', 'Розряд АКБ за день', 'entity'],
+    ['e_day_pv', 'Сонце', 'entity'], ['e_day_load', 'Споживання дому', 'entity'],
+    ['e_day_grid_import', 'Імпорт з мережі', 'entity'], ['e_day_grid_export', 'Експорт у мережу', 'entity'],
+    ['e_day_battery_charge', 'Заряд АКБ', 'entity'], ['e_day_battery_discharge', 'Розряд АКБ', 'entity'],
   ],
   outage: [['e_outage', 'Сенсор черги Svitlo.live', 'svitlo', 'Сенсор «Статус електроживлення» (англ. «Electricity») вашої черги. Порожньо = блок не показується']],
+  inverter: [
+    ['show_bus', 'Смужка на інверторі', 'bool'],
+    ['bus_mode', 'Режим смужки', 'busmode'],
+    ['bus_cycle', 'Перемикати режим кліком', 'bool'],
+    ['bus_label', 'Число під смужкою', 'bool', 'Потужність або %'],
+    ['inverter_power', 'Номінальна потужність, Вт', 'number', 'Для режиму «Завантаження»'],
+    ['bypass_current_a', 'Струм байпаса, А', 'number', 'Напр. 40. Порожньо = не враховувати'],
+    ['bypass_voltage', 'Напруга байпаса, В', 'number', 'Порожньо = напруга мережі'],
+    ['bypass_badge', 'Значок bypass', 'bypbadge', 'Потрібен струм байпаса'],
+    ['e_inverter_temp', 'Сенсор температури', 'entity'],
+    ['show_inverter_temp', 'Температура під смужкою', 'bool'],
+    ['inverter_temp_warn', 'Поріг перегріву, °C', 'number', 'Вище — число стає помаранчевим'],
+    ['inverter_temp_decimals', 'Знаків після коми (°C)', 'number', '0 = цілі'],
+  ],
+  look: [
+    ['title', 'Заголовок картки', 'text'],
+    ['flow_style', 'Вигляд потоків', 'flowstyle'],
+    ['flow_speed', 'Швидкість потоків', 'numf', '1 = звичайна, 0,5 повільніше, 2 швидше'],
+    ['animations', 'Анімації', 'anim', 'За замовчуванням вимкнено. Під системним «зменшити рух» не вмикаються'],
+  ],
+  names: [
+    ['n_home', 'Дім', 'text'], ['n_pv', 'Сонце', 'text'], ['n_battery', 'АКБ', 'text'],
+    ['n_grid', 'Мережа', 'text'], ['n_generator', 'Генератор', 'text'],
+  ],
   mobile: [
-    ['mobile_center', 'Центрувати картку на телефоні', 'bool'],
-    ['mobile_fill', 'Розтягувати на весь екран на телефоні', 'bool'],
+    ['mobile_center', 'Центрувати картку', 'bool'],
+    ['mobile_fill', 'Розтягувати на весь екран', 'bool'],
     ['mobile_offset', 'Відступ під шапку HA, px', 'number'],
   ],
-  names: [['n_pv', 'Назва: сонце', 'text'], ['n_generator', 'Назва: генератор', 'text'], ['n_grid', 'Назва: мережа', 'text'],
-          ['n_battery', 'Назва: АКБ', 'text'], ['n_home', 'Назва: дім', 'text']],
+  advanced: [
+    ['min_power', 'Поріг активності, Вт', 'number', 'Нижче — потік вважається вимкненим. За замовчуванням 10'],
+    ['max_power', 'Максимальна потужність, Вт', 'number', 'При ній потік біжить найшвидше'],
+    ['hide_when_zero', 'Ховати блок при нулі', 'multi'],
+    ['stale_minutes', 'Дані застарілі через, хв', 'number', 'Скільки хвилин без оновлень. 0 = не перевіряти'],
+    ['flow_fps', 'Кадрів/с потоків', 'number', 'За замовчуванням 30. Менше = менше навантаження на відеокарту; 0 = кожен кадр монітора'],
+    ['numbers_fps', 'Кадрів/с цифр', 'number', 'За замовчуванням 60. Діє лише під час зміни числа'],
+  ],
 };
 const EXTRA_SCHEMA = [
   { name: 'entity', selector: { entity: {} } },
@@ -1211,10 +1238,15 @@ class ZotacEnergyFlowCardEditor extends HTMLElement {
       if (hint) { const p = document.createElement('p'); p.className = 'hint'; p.textContent = hint; r.appendChild(p); }
       r.appendChild(this._mkForm(fields));
     };
-    sec('Датчики', ED.sensors, 'Обовʼязковий лише «Навантаження дому». Сонце можна не вказувати — блок не зʼявиться.');
-    sec('Сонячні рядки (MPPT)', ED.strings, 'Необовʼязково, до 4 рядків. Зʼявляються в блоці «Сонце»: потужність, смужка для порівняння рядків і напруга. Без загального сенсора сонця картка рахує суму рядків.');
-    sec('Параметри', ED.options);
+    sec('Основні датчики', ED.main, 'Обовʼязкове лише «Навантаження дому». Решта — за наявності.');
+    sec('Сонце', ED.pv, 'Необовʼязково. Без сенсорів блок не зʼявиться. Рядки MPPT (до 4) показуються в блоці «Сонце»: потужність, смужка для порівняння і напруга.');
+    sec('Генератор', ED.generator, 'Необовʼязково. Наприклад, генератор на вході GEN/AUX.');
+    sec('АКБ', ED.battery, 'Час до розряду/заряду: якщо задано ємність і межі %, картка рахує сама до цих меж; інакше бере сенсор часу роботи, а без нього — рахує з ємності.');
+    sec('Мережа', ED.grid);
+    sec('Енергія за сьогодні', ED.day, 'Необовʼязково. Добові лічильники інвертора (обнуляються опівночі). Показуються лише вказані.');
+    sec('Графік відключень (Svitlo.live)', ED.outage, 'Необовʼязково. Потрібна інтеграція Svitlo.live: під схемою зʼявиться наступне відключення з відліком часу і смужка графіка на 24 години.');
     const h = document.createElement('h3'); h.textContent = 'Додаткові показники (нижній ряд)'; r.appendChild(h);
+    const hp = document.createElement('p'); hp.className = 'hint'; hp.textContent = 'Будь-які сенсори в ряд під схемою: підпис, одиниця, поріг попередження.'; r.appendChild(hp);
     this._exBox = document.createElement('div'); r.appendChild(this._exBox);
     const add = document.createElement('button'); add.textContent = '+ Додати показник';
     add.addEventListener('click', () => {
@@ -1223,12 +1255,10 @@ class ZotacEnergyFlowCardEditor extends HTMLElement {
     });
     r.appendChild(add);
     sec('Інвертор', ED.inverter, 'Смужка в центрі схеми: режими «Джерела», «Завантаження», «Звідки / куди», «Температура».');
-    sec('Потоки енергії', ED.flow);
-    sec('Анімації', ED.anim, 'За замовчуванням усе вимкнено. Під налаштуванням системи «зменшити рух» анімації не вмикаються.');
-    sec('Енергія за сьогодні', ED.day, 'Необовʼязково. Добові лічильники інвертора (обнуляються опівночі). Показуються лише вказані.');
-    sec('Графік відключень (Svitlo.live)', ED.outage, 'Необовʼязково. Потрібна інтеграція Svitlo.live: під схемою зʼявиться наступне відключення з відліком часу і смужка графіка на 24 години.');
+    sec('Вигляд і анімації', ED.look);
+    sec('Назви блоків', ED.names, 'Порожньо = стандартна назва.');
     sec('Телефон', ED.mobile);
-    sec('Назви блоків', ED.names);
+    sec('Розширені', ED.advanced, 'Зазвичай змінювати не потрібно.');
     this._renderExtras();
   }
 
