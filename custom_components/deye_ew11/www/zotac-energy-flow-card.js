@@ -5,7 +5,7 @@
  * Шрифт Fira Sans Condensed (SIL OFL) вбудований, працює без інтернету.
  */
 
-const VERSION = '3.3.1';
+const VERSION = '3.3.2';
 
 const SV = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
@@ -289,11 +289,11 @@ class ZotacEnergyFlowCard extends HTMLElement {
           box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 0 0 1px color-mix(in srgb,var(--lc,#6b757d) 35%,transparent), 0 0 calc(4*var(--u)) color-mix(in srgb,var(--lc,#6b757d) 45%,transparent); }
         .lamp svg { width:calc(5.4*var(--u)); height:calc(5.4*var(--u)); filter:drop-shadow(0 0 calc(.8*var(--u)) currentColor); }
         .head { font-size:max(20px,calc(6.4*var(--u))); letter-spacing:-.01em; font-weight:600; line-height:1.05; }
-        .headsub { font-size:max(12px,calc(3*var(--u))); font-weight:500; color:#8a949c; margin-top:calc(.6*var(--u)); }
+        .headsub { font-size:max(12px,calc(3*var(--u))); font-weight:500; color:#8a949c; margin-top:calc(.6*var(--u)); min-height:1.25em; }
         .headsub.warn { display:inline-flex; align-items:center; gap:calc(1.2*var(--u)); color:#ff6b7a; font-weight:600;
           padding:calc(.5*var(--u)) calc(1.8*var(--u)) calc(.5*var(--u)) calc(1.4*var(--u)); border-radius:99px;
           background:rgba(255,77,94,.13); box-shadow:inset 0 0 0 1px rgba(255,77,94,.4), 0 0 0 rgba(255,77,94,0);
-          position:relative; }
+          position:relative; margin-top:calc(.1*var(--u)); margin-bottom:calc(-.5*var(--u)); } /* відступи пігулки компенсовано: висота шапки та сама, що й зі звичайним рядком */
         .headsub.warn::after { content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none; opacity:0;
           box-shadow:inset 0 0 0 1px rgba(255,77,94,.55), 0 0 calc(3*var(--u)) rgba(255,77,94,.5); animation:glow 2.6s ease-in-out infinite; }
         @keyframes glow { 50% { opacity:1; } }
@@ -758,7 +758,15 @@ class ZotacEnergyFlowCard extends HTMLElement {
     const soc = Math.max(0, Math.min(100, this._num(e.soc || e.battery_soc)));
     const pvOn = f.pv >= min, genOn = f.generator >= min;
     const gridImp = f.grid >= min, gridExp = f.grid <= -min;
-    const charge = f.battery <= -min, discharge = f.battery >= min;
+    // Стан АКБ з гістерезисом: входимо в заряд/розряд від min_power, виходимо лише нижче половини порога,
+    // інакше при потужності біля порога стан (і вся картка) смикається щокілька секунд
+    const batW = f.battery, bst0 = this._bst || 'idle';
+    let bst = batW <= -min ? 'charge' : batW >= min ? 'discharge' : 'idle';
+    if (bst === 'idle' && ((bst0 === 'charge' && batW <= -min / 2) || (bst0 === 'discharge' && batW >= min / 2))) bst = bst0;
+    // Майже повна АКБ: підзарядка до 100 W — це підтримка заряду інвертором, а не «заряд до повного»
+    if (bst === 'charge' && soc >= 99 && -batW < 100) bst = 'idle';
+    this._bst = bst;
+    const charge = bst === 'charge', discharge = bst === 'discharge';
     const loadOn = f.load >= min;
     const hasVolt = !!e.grid_voltage;
     const gridUp = hasVolt ? this._num(e.grid_voltage) > 50 : (gridImp || gridExp);
@@ -791,7 +799,7 @@ class ZotacEnergyFlowCard extends HTMLElement {
     let head = dom ? HEADS[dom] : (outage ? 'Світла немає' : 'Очікування'); const parts = [];
     if (outage && head !== 'Світла немає') parts.push('Світла немає');
     else if (genOn && hasVolt && gridUp) parts.push('Мережа є');
-    if (rtStr && (charge || discharge)) parts.push(`${this._rtLabel(charge, discharge)} ${rtStr}`);
+    if (rtStr) parts.push(`${this._rtLabel(charge, discharge)} ${rtStr}`);
     if (stale) head = 'Немає даних';
     const sub = stale ? staleMsg : parts.join(' · '), warn = (outage && !!sub) || stale;
     const swap = (el) => { const cd = root.querySelector('ha-card'); if (cd && cd.classList.contains('init')) return; el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap'); };
