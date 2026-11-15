@@ -5,7 +5,7 @@
  * Шрифт Fira Sans Condensed (SIL OFL) вбудований, працює без інтернету.
  */
 
-const VERSION = '3.1.2';
+const VERSION = '3.2.0';
 
 const SV = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
@@ -18,6 +18,8 @@ const ICON = {
   inverter: SV('<rect x="3" y="4" width="18" height="16" rx="3.4"/><path d="M6.5 8.5h4M13.5 8.5h4"/><path d="M6.2 14.5c1.6-3.4 3.2-3.4 4.8 0s3.2 3.4 4.8 0 1.6-1.7 2-1.7"/>'),
   bolt: SV('<path d="M13 2.5L5 13.5h6l-1 8 8-11h-6z"/>'),
   clock: SV('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+  imp: SV('<path d="M12 3.5v12M7 10.5l5 5 5-5M5 20.5h14"/>'),
+  exp: SV('<path d="M12 20.5v-12M7 13.5l5-5 5 5M5 3.5h14"/>'),
 };
 
 const COL = {
@@ -34,6 +36,15 @@ const ANIMS = ['breathe', 'icons', 'bus', 'battery', 'numbers', 'enter'];
 const bypCol = (col) => col || COL.grid;
 const NAMES = { pv: 'Сонце', generator: 'Генератор', grid: 'Мережа', battery: 'АКБ', home: 'Дім' };
 const FROM = { pv: 'сонця', generator: 'генератора', grid: 'мережі', battery: 'АКБ' };
+// Добові лічильники інвертора: [ключ у entities, підпис, іконка, колір]
+const DAY = [
+  ['day_pv', 'Сонце', 'pv', COL.pv],
+  ['day_grid_import', 'З мережі', 'imp', COL.grid],
+  ['day_grid_export', 'У мережу', 'exp', '#b18cff'],
+  ['day_load', 'Дім', 'home', COL.home],
+  ['day_battery_charge', 'Заряд АКБ', 'battery', COL.battery],
+  ['day_battery_discharge', 'Розряд АКБ', 'battery', COL.battery],
+];
 const GEN_STATUS = {
   running: 'Працює', on: 'Працює', started: 'Працює',
   stopped: 'Зупинено', off: 'Вимкнено', standby: 'Очікування',
@@ -395,6 +406,23 @@ class ZotacEnergyFlowCard extends HTMLElement {
         .tl i.off { background:#ff4d5e; box-shadow:0 0 calc(.8*var(--u)) rgba(255,77,94,.45); } .tl i.unknown { background:#2a3036; }
         .tl .now { position:absolute; top:calc(-.6*var(--u)); bottom:calc(-.6*var(--u)); width:max(2px,calc(.4*var(--u))); margin-left:-1px; border-radius:2px;
           background:#fff; box-shadow:0 0 calc(1*var(--u)) rgba(255,255,255,.7); }
+        .day { margin-top:calc(2.2*var(--u)); }
+        .dyh { display:flex; justify-content:space-between; align-items:baseline; margin:0 calc(.4*var(--u)) calc(1.1*var(--u));
+          font-size:max(11px,calc(2.6*var(--u))); font-weight:600; color:#aab3ba; }
+        .dyh small { font-size:max(9px,calc(2.1*var(--u))); font-weight:500; color:#6b757d; }
+        .dyg { --dn:3; display:grid; grid-template-columns:repeat(var(--dn),minmax(0,1fr)); gap:calc(1.4*var(--u)); } .dyg.n1 { --dn:1; } .dyg.n2 { --dn:2; } .dyg.n4 { --dn:4; }
+        .dyt { --c:#e8ecef; cursor:pointer; min-width:0; display:flex; align-items:center; gap:calc(1.6*var(--u));
+          padding:calc(1.4*var(--u)) calc(1.8*var(--u)); border-radius:calc(2.2*var(--u));
+          background:linear-gradient(150deg,color-mix(in srgb,var(--c) 10%,rgba(255,255,255,.035)),rgba(255,255,255,.02));
+          box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 20%,rgba(255,255,255,.05)); }
+        .dyt .chip { color:var(--c); background:linear-gradient(145deg,color-mix(in srgb,var(--c) 28%,#14181c),color-mix(in srgb,var(--c) 8%,#14181c));
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 0 0 1px color-mix(in srgb,var(--c) 34%,transparent); }
+        .dyt div { min-width:0; }
+        .dyt span { display:block; font-size:max(10px,calc(2.4*var(--u))); font-weight:500; color:#8a949c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .dyt b { display:block; font-size:max(16px,calc(4.6*var(--u))); font-weight:600; line-height:1.1; color:#f2f5f7; white-space:nowrap; }
+        .dyt b u { text-decoration:none; font-size:.55em; font-weight:500; color:#8a949c; margin-left:.25em; }
+        @container (max-width:480px) { .dyg.n4 { --dn:2; } .dyt { padding:calc(1.4*var(--u)); gap:calc(1.2*var(--u)); } .dyt .chip { width:calc(5*var(--u)); height:calc(5*var(--u)); } }
+        .dyt.zero { opacity:.55; } .dyt.zero .chip { color:#6b757d; }
         .tk { display:flex; justify-content:space-between; margin-top:calc(.7*var(--u)); font-size:max(9px,calc(2.1*var(--u))); color:#6b757d; }
         .inv { grid-column:3; grid-row:1 / -1; margin:calc(.8*var(--u)) 0; border-radius:calc(3.4*var(--u)); padding:calc(2*var(--u)) 0 calc(1.8*var(--u));
           display:flex; flex-direction:column; align-items:center; gap:calc(1.1*var(--u)); position:relative; overflow:hidden;
@@ -458,6 +486,7 @@ class ZotacEnergyFlowCard extends HTMLElement {
           <div class="hd"><span class="lamp">${ICON.bolt}</span>
             <div><div class="head">–</div><div class="headsub"></div><span class="bypchip"></span></div></div>
           <div class="board"><div class="inv${c.show_bus === false ? ' nobus' : ''}${c.show_inverter_temp === false ? ' notemp' : ''}"><i class="chip">${ICON.inverter}</i><span class="nm">Інвертор</span><span class="byp"></span><div class="bus"></div><b class="bp"></b><b class="it"></b></div>${parts}</div>
+          ${DAY.some(([k]) => c.entities[k]) ? `<div class="day"><div class="dyh">Енергія за сьогодні<small>лічильники інвертора з 00:00</small></div><div class="dyg n${DAY.filter(([k]) => c.entities[k]).length}">${DAY.filter(([k]) => c.entities[k]).map(([k, l, ic, col]) => `<div class="dyt" data-k="${k}" style="--c:${col}"><i class="chip">${ICON[ic]}</i><div><span>${l}</span><b>–</b></div></div>`).join('')}</div></div>` : ''}
           ${c.entities.outage ? `<div class="sch na"><div class="sr"><i class="chip">${ICON.clock}</i><div class="sm"><span>Графік відключень</span><b>–</b><em></em></div><div class="tot"></div></div><div class="tl"></div><div class="tk"></div></div>` : ''}
           ${(c.extras && c.extras.length) ? `<div class="foot" style="--n:${c.extras.length <= 6 ? c.extras.length : Math.ceil(c.extras.length / 2)}">${c.extras.map((x, i) => `<div class="ex" data-i="${i}"><span>${x.name || x.entity}</span><b>–</b></div>`).join('')}</div>` : ''}
         </div></div>
@@ -475,6 +504,7 @@ class ZotacEnergyFlowCard extends HTMLElement {
         if (x) this.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId: x.entity }, bubbles: true, composed: true }));
       });
     });
+    this.shadowRoot.querySelectorAll('.dyt').forEach((el) => el.addEventListener('click', () => this.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId: this._config.entities[el.dataset.k] }, bubbles: true, composed: true }))));
     const schEl = this.shadowRoot.querySelector('.sch');
     if (schEl) schEl.addEventListener('click', () => this.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId: this._outageId || this._config.entities.outage }, bubbles: true, composed: true })));
     const busEl = this.shadowRoot.querySelector('.bus');
@@ -632,9 +662,21 @@ class ZotacEnergyFlowCard extends HTMLElement {
     const nw = q('.tl .now'); if (nw) nw.style.left = `${((nowMin - start * 30) / 1440) * 100}%`;
   }
 
+  _energy() {
+    this.shadowRoot.querySelectorAll('.dyt').forEach((el) => {
+      const s = this._hass.states[this._config.entities[el.dataset.k]];
+      const n = s ? parseFloat(String(s.state).replace(',', '.')) : NaN;
+      const kwh = s && s.attributes.unit_of_measurement === 'Wh' ? n / 1000 : n;
+      const v = Number.isFinite(kwh) ? `${kwh.toFixed(kwh >= 100 ? 0 : 1).replace('.', ',')}<u>kWh</u>` : '—';
+      const b = el.querySelector('b'); if (b.innerHTML !== v) b.innerHTML = v;
+      el.classList.toggle('zero', !(kwh > 0));
+    });
+  }
+
   _update() {
     const c = this._config, e = c.entities, min = c.min_power, root = this.shadowRoot;
     if (e.outage) this._outage();
+    this._energy();
     const f = computeFlows({
       pv: this._num(e.pv), generator: this._num(e.generator), grid: this._num(e.grid),
       battery: this._num(e.battery), load: this._num(e.load),
@@ -670,12 +712,9 @@ class ZotacEnergyFlowCard extends HTMLElement {
     // Заголовок
     const outage = hasVolt && !gridUp && !stale;
     const rtStr = this._runtime(f, soc, charge, discharge);
-    let head = 'Очікування'; const parts = [];
-    if (genOn) head = 'Працює генератор';
-    else if (gridImp) head = 'Живлення від мережі';
-    else if (pvOn && !discharge) head = 'Живлення від сонця';
-    else if (discharge) head = 'Працюємо від АКБ';
-    else if (outage) head = 'Світла немає';
+    // Заголовок за найпотужнішим джерелом (як колір лампи і підпис «від …» у блоці «Дім»)
+    const HEADS = { generator: 'Працює генератор', grid: 'Живлення від мережі', pv: 'Живлення від сонця', battery: 'Працюємо від АКБ' };
+    let head = dom ? HEADS[dom] : (outage ? 'Світла немає' : 'Очікування'); const parts = [];
     if (outage && head !== 'Світла немає') parts.push('Світла немає');
     else if (genOn && hasVolt && gridUp) parts.push('Мережа є');
     if (rtStr && (charge || discharge)) parts.push(`${this._rtLabel(charge, discharge)} ${rtStr}`);
@@ -952,6 +991,11 @@ const ED = {
     ['flow_speed', 'Швидкість потоків', 'numf', '1 = звичайна, 0,5 повільніше, 2 швидше'],
   ],
   anim: [['animations', 'Увімкнути анімації', 'anim', 'Оберіть потрібні']],
+  day: [
+    ['e_day_pv', 'Сонце за день', 'entity'], ['e_day_grid_import', 'Імпорт з мережі за день', 'entity'],
+    ['e_day_grid_export', 'Експорт у мережу за день', 'entity'], ['e_day_load', 'Споживання дому за день', 'entity'],
+    ['e_day_battery_charge', 'Заряд АКБ за день', 'entity'], ['e_day_battery_discharge', 'Розряд АКБ за день', 'entity'],
+  ],
   outage: [['e_outage', 'Сенсор черги Svitlo.live', 'svitlo', 'Сенсор «Статус електроживлення» (англ. «Electricity») вашої черги. Порожньо = блок не показується']],
   mobile: [
     ['mobile_center', 'Центрувати картку на телефоні', 'bool'],
@@ -1091,6 +1135,7 @@ class ZotacEnergyFlowCardEditor extends HTMLElement {
     sec('Інвертор', ED.inverter, 'Смужка в центрі схеми: режими «Джерела», «Завантаження», «Звідки / куди», «Температура».');
     sec('Потоки енергії', ED.flow);
     sec('Анімації', ED.anim, 'За замовчуванням усе вимкнено. Під налаштуванням системи «зменшити рух» анімації не вмикаються.');
+    sec('Енергія за сьогодні', ED.day, 'Необовʼязково. Добові лічильники інвертора (обнуляються опівночі). Показуються лише вказані.');
     sec('Графік відключень (Svitlo.live)', ED.outage, 'Необовʼязково. Потрібна інтеграція Svitlo.live: під схемою зʼявиться наступне відключення з відліком часу і смужка графіка на 24 години.');
     sec('Телефон', ED.mobile);
     sec('Назви блоків', ED.names);
