@@ -5,7 +5,7 @@
  * Шрифт Fira Sans Condensed (SIL OFL) вбудований, працює без інтернету.
  */
 
-const VERSION = '3.3.0';
+const VERSION = '3.3.1';
 
 const SV = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
@@ -254,7 +254,6 @@ class ZotacEnergyFlowCard extends HTMLElement {
       const m = k === 'battery' ? mod(k, gauge).replace('<div class="sub"></div>', '<div class="sub"></div><div class="sub sub2"></div>')
         : (k === 'pv' && strs.length) ? mod(k).replace('class="mod"', 'class="mod has-str"')
           .replace('<u>W</u></div>', `<u>W</u><div class="strs n${strs.length}">${strs.map((i) => `<div class="str" data-i="${i}"><span>PV${i}</span><b>–</b><i class="sb"><i></i></i></div>`).join('')}</div></div>`)
-          .replace('</section>', '<div class="sub strt"></div></section>')
         : mod(k);
       return `${m}<div class="pipe" data-p="${k}" style="--c:${COL[k]}"><i class="rail"><b class="cm"><i class="cmi"></i></b></i><i class="pt a"></i><i class="pt b"></i></div>`;
     }).join('');
@@ -426,9 +425,30 @@ class ZotacEnergyFlowCard extends HTMLElement {
         .str .sb i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,color-mix(in srgb,var(--c) 55%,#000),var(--c));
           box-shadow:0 0 calc(1*var(--u)) color-mix(in srgb,var(--c) 50%,transparent); transform-origin:0 50%; transform:scaleX(var(--p,0)); transition:transform .6s; }
         .mod .num .str.idle b { color:#69747d; }
-        .mod.has-str .sub:empty, .strt { display:none; }
-        /* вузька картка: замість сітки один рядок «1,6 · 1,2 kW» у підписі */
-        @container (max-width:480px) { .strs { display:none; } .mod.has-str .strt:not(:empty) { display:block; } .mod.has-str.on .sub:not(.strt) { display:none; } }
+        .mod.has-str .sub:empty { display:none; }
+        /* картка вужча за 740px (телефон, планшет, вузька колонка): рядки переїжджають з блоку «Сонце» в окремий ряд на всю ширину */
+        .pvrow { display:none; margin-top:calc(2.2*var(--u)); }
+        .pvg { display:grid; grid-template-columns:repeat(var(--pn,2),minmax(0,1fr)); gap:calc(1.4*var(--u)); }
+        .pvrow.n1 .pvg { --pn:1; } .pvrow.n3 .pvg { --pn:3; } .pvrow.n4 .pvg { --pn:4; }
+        .pvt { --c:#c2f24b; cursor:pointer; min-width:0; padding:calc(1.5*var(--u)) calc(1.8*var(--u)) calc(1.7*var(--u)); border-radius:calc(2.2*var(--u));
+          background:linear-gradient(150deg,color-mix(in srgb,var(--c) 10%,rgba(255,255,255,.035)),rgba(255,255,255,.02));
+          box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 20%,rgba(255,255,255,.05)); }
+        .pvt .ph { display:flex; justify-content:space-between; align-items:baseline; gap:calc(.8*var(--u)); }
+        .pvt .ph span { font-size:max(10px,calc(2.4*var(--u))); font-weight:600; color:#aab3ba; letter-spacing:.02em; }
+        .pvt .ph small { font-size:max(9px,calc(2.2*var(--u))); font-weight:500; color:#6b757d; white-space:nowrap; }
+        .pvt b { display:block; margin-top:calc(.3*var(--u)); font-size:max(15px,calc(4.4*var(--u))); font-weight:600; line-height:1.1; color:#f2f5f7; white-space:nowrap; }
+        .pvt b u { text-decoration:none; font-size:.6em; font-weight:500; color:#8a949c; margin-left:.2em; }
+        .pvt .sb { display:block; height:max(3px,calc(.7*var(--u))); margin-top:calc(1*var(--u)); border-radius:99px; background:rgba(255,255,255,.08); overflow:hidden; }
+        .pvt .sb i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,color-mix(in srgb,var(--c) 55%,#000),var(--c));
+          box-shadow:0 0 calc(1*var(--u)) color-mix(in srgb,var(--c) 50%,transparent); transform-origin:0 50%; transform:scaleX(var(--p,0)); transition:transform .6s; }
+        .pvt.idle b { color:#69747d; }
+        /* 4 рядки на дуже вузькому екрані: напругу ховаємо, щоб влазили в один ряд */
+        @container (max-width:739px) { .strs { display:none; } .pvrow { display:block; } }
+        /* найвужчі телефони (320px): головні числа трохи менші, щоб блоки не переповнювались */
+        @container (max-width:340px) { .num b { font-size:23px; } .num u { font-size:12px; } }
+        /* 600–700px: компактний ПК-режим уже вмикає великі шрифти, а блок АКБ ще вузький — «до повного · 14 год 56 хв» не влазив */
+        @container (min-width:600px) and (max-width:700px) { .mod[data-k=battery] .sub { font-size:max(11px,2.4cqw); } }
+        @container (max-width:360px) { .pvrow.n4 .ph small { display:none; } }
         .day { margin-top:calc(2.2*var(--u)); }
         .dyh { display:flex; justify-content:space-between; align-items:baseline; margin:0 calc(.4*var(--u)) calc(1.1*var(--u));
           font-size:max(11px,calc(2.6*var(--u))); font-weight:600; color:#aab3ba; }
@@ -509,6 +529,7 @@ class ZotacEnergyFlowCard extends HTMLElement {
           <div class="hd"><span class="lamp">${ICON.bolt}</span>
             <div><div class="head">–</div><div class="headsub"></div><span class="bypchip"></span></div></div>
           <div class="board"><div class="inv${c.show_bus === false ? ' nobus' : ''}${c.show_inverter_temp === false ? ' notemp' : ''}"><i class="chip">${ICON.inverter}</i><span class="nm">Інвертор</span><span class="byp"></span><div class="bus"></div><b class="bp"></b><b class="it"></b></div>${parts}</div>
+          ${this._pvStrings().length ? `<div class="pvrow n${this._pvStrings().length}"><div class="dyh">Сонячні рядки<small>MPPT</small></div><div class="pvg">${this._pvStrings().map((i) => `<div class="pvt" data-i="${i}"><div class="ph"><span>PV${i}</span><small></small></div><b>–</b><i class="sb"><i></i></i></div>`).join('')}</div></div>` : ''}
           ${DAY.some(([k]) => c.entities[k]) ? `<div class="day"><div class="dyh">Енергія за сьогодні<small>лічильники інвертора з 00:00</small></div><div class="dyg n${DAY.filter(([k]) => c.entities[k]).length}">${DAY.filter(([k]) => c.entities[k]).map(([k, l, ic, col]) => `<div class="dyt" data-k="${k}" style="--c:${col}"><i class="chip">${ICON[ic]}</i><div><span>${l}</span><b>–</b></div></div>`).join('')}</div></div>` : ''}
           ${c.entities.outage ? `<div class="sch na"><div class="sr"><i class="chip">${ICON.clock}</i><div class="sm"><span>Графік відключень</span><b>–</b><em></em></div><div class="tot"></div></div><div class="tl"></div><div class="tk"></div></div>` : ''}
           ${(c.extras && c.extras.length) ? `<div class="foot" style="--n:${c.extras.length <= 6 ? c.extras.length : Math.ceil(c.extras.length / 2)}">${c.extras.map((x, i) => `<div class="ex" data-i="${i}"><span>${x.name || x.entity}</span><b>–</b></div>`).join('')}</div>` : ''}
@@ -527,6 +548,7 @@ class ZotacEnergyFlowCard extends HTMLElement {
         if (x) this.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId: x.entity }, bubbles: true, composed: true }));
       });
     });
+    this.shadowRoot.querySelectorAll('.pvt').forEach((el) => el.addEventListener('click', () => this.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId: this._config.entities['pv' + el.dataset.i] }, bubbles: true, composed: true }))));
     this.shadowRoot.querySelectorAll('.dyt').forEach((el) => el.addEventListener('click', () => this.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId: this._config.entities[el.dataset.k] }, bubbles: true, composed: true }))));
     const schEl = this.shadowRoot.querySelector('.sch');
     if (schEl) schEl.addEventListener('click', () => this.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId: this._outageId || this._config.entities.outage }, bubbles: true, composed: true })));
@@ -703,9 +725,15 @@ class ZotacEnergyFlowCard extends HTMLElement {
       el.title = `PV${r.i}: ${fmt(r.w, this._us, 'pv' + r.i)}${v ? ' · ' + v : ''}`;
       el.querySelector('.sb i').style.setProperty('--p', max > 0 ? (r.w / max).toFixed(3) : 0);
       el.classList.toggle('idle', r.w < min);
+      const t2 = this.shadowRoot.querySelector(`.pvt[data-i="${r.i}"]`);
+      if (t2) {
+        const sp = split(r.w, this._us, 'pv' + r.i), h = `${sp.n}<u>${sp.u}</u>`;
+        const b2 = t2.querySelector('b'); if (b2.innerHTML !== h) b2.innerHTML = h;
+        t2.querySelector('small').textContent = v;
+        t2.querySelector('.sb i').style.setProperty('--p', max > 0 ? (r.w / max).toFixed(3) : 0);
+        t2.classList.toggle('idle', r.w < min);
+      }
     });
-    const sum = rows.some((r) => r.w >= min) ? rows.map((r) => short(r.w)).join(' · ') + (rows.length <= 2 ? (totKw ? ' kW' : ' W') : '') : '';
-    const st = this.shadowRoot.querySelector('.strt'); if (st && st.textContent !== sum) st.textContent = sum;
   }
 
   _energy() {
