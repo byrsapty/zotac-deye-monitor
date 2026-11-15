@@ -5,7 +5,7 @@
  * Шрифт Fira Sans Condensed (SIL OFL) вбудований, працює без інтернету.
  */
 
-const VERSION = '3.2.0';
+const VERSION = '3.3.0';
 
 const SV = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
@@ -36,6 +36,8 @@ const ANIMS = ['breathe', 'icons', 'bus', 'battery', 'numbers', 'enter'];
 const bypCol = (col) => col || COL.grid;
 const NAMES = { pv: 'Сонце', generator: 'Генератор', grid: 'Мережа', battery: 'АКБ', home: 'Дім' };
 const FROM = { pv: 'сонця', generator: 'генератора', grid: 'мережі', battery: 'АКБ' };
+// MPPT-рядки сонця: entities.pv1 … pv4 (потужність) і pv1_voltage … pv4_voltage (необовʼязково)
+const PVS = [1, 2, 3, 4];
 // Добові лічильники інвертора: [ключ у entities, підпис, іконка, колір]
 const DAY = [
   ['day_pv', 'Сонце', 'pv', COL.pv],
@@ -229,7 +231,8 @@ class ZotacEnergyFlowCard extends HTMLElement {
   getGridOptions() { return { columns: 12, min_columns: 6, rows: 'auto' }; }
 
   _name(k) { return (this._config.names && this._config.names[k]) || NAMES[k]; }
-  _entityFor(k) { const e = this._config.entities; return k === 'home' ? (e.home || e.load) : e[k]; }
+  _entityFor(k) { const e = this._config.entities; return k === 'home' ? (e.home || e.load) : k === 'pv' ? (e.pv || e.pv1 || e.pv2 || e.pv3 || e.pv4) : e[k]; }
+  _pvStrings() { const e = this._config.entities; return PVS.filter((i) => e['pv' + i]); }
 
   _build() {
     ensureFonts();
@@ -247,7 +250,12 @@ class ZotacEnergyFlowCard extends HTMLElement {
     this._keys = keys;
 
     const parts = keys.map((k) => {
-      const m = k === 'battery' ? mod(k, gauge).replace('<div class="sub"></div>', '<div class="sub"></div><div class="sub sub2"></div>') : mod(k);
+      const strs = this._pvStrings();
+      const m = k === 'battery' ? mod(k, gauge).replace('<div class="sub"></div>', '<div class="sub"></div><div class="sub sub2"></div>')
+        : (k === 'pv' && strs.length) ? mod(k).replace('class="mod"', 'class="mod has-str"')
+          .replace('<u>W</u></div>', `<u>W</u><div class="strs n${strs.length}">${strs.map((i) => `<div class="str" data-i="${i}"><span>PV${i}</span><b>–</b><i class="sb"><i></i></i></div>`).join('')}</div></div>`)
+          .replace('</section>', '<div class="sub strt"></div></section>')
+        : mod(k);
       return `${m}<div class="pipe" data-p="${k}" style="--c:${COL[k]}"><i class="rail"><b class="cm"><i class="cmi"></i></b></i><i class="pt a"></i><i class="pt b"></i></div>`;
     }).join('');
 
@@ -406,6 +414,21 @@ class ZotacEnergyFlowCard extends HTMLElement {
         .tl i.off { background:#ff4d5e; box-shadow:0 0 calc(.8*var(--u)) rgba(255,77,94,.45); } .tl i.unknown { background:#2a3036; }
         .tl .now { position:absolute; top:calc(-.6*var(--u)); bottom:calc(-.6*var(--u)); width:max(2px,calc(.4*var(--u))); margin-left:-1px; border-radius:2px;
           background:#fff; box-shadow:0 0 calc(1*var(--u)) rgba(255,255,255,.7); }
+        .mod.has-str .num { align-items:center; }
+        .strs { margin-left:auto; flex:0 1 62%; min-width:0; display:grid; grid-template-columns:repeat(var(--sn,1),minmax(0,1fr));
+          gap:calc(.7*var(--u)) calc(1.4*var(--u)); align-self:center; }
+        .strs.n3, .strs.n4 { --sn:2; }
+        .str { min-width:0; display:grid; grid-template-columns:auto 1fr; align-items:baseline; column-gap:calc(.8*var(--u)); }
+        .str span { font-size:max(9px,calc(2*var(--u))); font-weight:600; color:#8a949c; letter-spacing:.02em; white-space:nowrap; }
+        .mod .num .str b { font-size:max(10px,calc(2.5*var(--u))); font-weight:600; color:#e8ecef; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .mod .num .str b small { font-size:.85em; font-weight:500; color:#6b757d; margin-right:.5em; }
+        .str .sb { grid-column:1 / -1; height:max(3px,calc(.6*var(--u))); margin-top:calc(.35*var(--u)); border-radius:99px; background:rgba(255,255,255,.08); overflow:hidden; }
+        .str .sb i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,color-mix(in srgb,var(--c) 55%,#000),var(--c));
+          box-shadow:0 0 calc(1*var(--u)) color-mix(in srgb,var(--c) 50%,transparent); transform-origin:0 50%; transform:scaleX(var(--p,0)); transition:transform .6s; }
+        .mod .num .str.idle b { color:#69747d; }
+        .mod.has-str .sub:empty, .strt { display:none; }
+        /* вузька картка: замість сітки один рядок «1,6 · 1,2 kW» у підписі */
+        @container (max-width:480px) { .strs { display:none; } .mod.has-str .strt:not(:empty) { display:block; } .mod.has-str.on .sub:not(.strt) { display:none; } }
         .day { margin-top:calc(2.2*var(--u)); }
         .dyh { display:flex; justify-content:space-between; align-items:baseline; margin:0 calc(.4*var(--u)) calc(1.1*var(--u));
           font-size:max(11px,calc(2.6*var(--u))); font-weight:600; color:#aab3ba; }
@@ -662,6 +685,29 @@ class ZotacEnergyFlowCard extends HTMLElement {
     const nw = q('.tl .now'); if (nw) nw.style.left = `${((nowMin - start * 30) / 1440) * 100}%`;
   }
 
+  // Рядки MPPT: смужка порівнює рядки між собою (найсильніший = повна), щоб було видно затінення чи брудні панелі
+  _updStrings(min) {
+    const box = this.shadowRoot.querySelector('.strs');
+    if (!box) return;
+    const e = this._config.entities;
+    const rows = this._pvStrings().map((i) => ({ i, w: Math.max(0, this._num(e['pv' + i])), v: e[`pv${i}_voltage`] }));
+    const max = Math.max(...rows.map((r) => r.w));
+    // 3-4 рядки в сітці 2×2: без одиниці в клітинці, в одиницях загальної потужності (W або kW поруч)
+    const totKw = !!this._us.pv;
+    const short = (w) => (totKw ? (w / 1000).toFixed(1).replace('.', ',') : String(Math.round(w)));
+    rows.forEach((r) => {
+      const el = box.querySelector(`.str[data-i="${r.i}"]`);
+      const v = r.v ? `${Math.round(this._num(r.v))} V` : '';
+      const t = rows.length <= 2 ? (v ? `<small>${v}</small>` : '') + fmt(r.w, this._us, 'pv' + r.i) : short(r.w);
+      const b = el.querySelector('b'); if (b.innerHTML !== t) b.innerHTML = t;
+      el.title = `PV${r.i}: ${fmt(r.w, this._us, 'pv' + r.i)}${v ? ' · ' + v : ''}`;
+      el.querySelector('.sb i').style.setProperty('--p', max > 0 ? (r.w / max).toFixed(3) : 0);
+      el.classList.toggle('idle', r.w < min);
+    });
+    const sum = rows.some((r) => r.w >= min) ? rows.map((r) => short(r.w)).join(' · ') + (rows.length <= 2 ? (totKw ? ' kW' : ' W') : '') : '';
+    const st = this.shadowRoot.querySelector('.strt'); if (st && st.textContent !== sum) st.textContent = sum;
+  }
+
   _energy() {
     this.shadowRoot.querySelectorAll('.dyt').forEach((el) => {
       const s = this._hass.states[this._config.entities[el.dataset.k]];
@@ -678,7 +724,7 @@ class ZotacEnergyFlowCard extends HTMLElement {
     if (e.outage) this._outage();
     this._energy();
     const f = computeFlows({
-      pv: this._num(e.pv), generator: this._num(e.generator), grid: this._num(e.grid),
+      pv: e.pv ? this._num(e.pv) : this._pvStrings().reduce((a, i) => a + Math.max(0, this._num(e['pv' + i])), 0), generator: this._num(e.generator), grid: this._num(e.grid),
       battery: this._num(e.battery), load: this._num(e.load),
     }, c);
     const soc = Math.max(0, Math.min(100, this._num(e.soc || e.battery_soc)));
@@ -777,6 +823,7 @@ class ZotacEnergyFlowCard extends HTMLElement {
       el.className = 'sub ' + cls;
     };
     set('pv', pvOn, f.pv, pvOn ? '' : 'Не виробляє');
+    this._updStrings(min);
     const gs = this._text(e.generator_status), gsl = gs.toLowerCase();
     set('generator', genOn, f.generator, gs ? (GEN_STATUS[gsl] || gs) : (genOn ? 'Працює' : 'Зупинено'));
     let gsub = '', gcls = '';
@@ -991,6 +1038,12 @@ const ED = {
     ['flow_speed', 'Швидкість потоків', 'numf', '1 = звичайна, 0,5 повільніше, 2 швидше'],
   ],
   anim: [['animations', 'Увімкнути анімації', 'anim', 'Оберіть потрібні']],
+  strings: [
+    ['e_pv1', 'PV1, потужність', 'entity'], ['e_pv1_voltage', 'PV1, напруга', 'entity'],
+    ['e_pv2', 'PV2, потужність', 'entity'], ['e_pv2_voltage', 'PV2, напруга', 'entity'],
+    ['e_pv3', 'PV3, потужність', 'entity'], ['e_pv3_voltage', 'PV3, напруга', 'entity'],
+    ['e_pv4', 'PV4, потужність', 'entity'], ['e_pv4_voltage', 'PV4, напруга', 'entity'],
+  ],
   day: [
     ['e_day_pv', 'Сонце за день', 'entity'], ['e_day_grid_import', 'Імпорт з мережі за день', 'entity'],
     ['e_day_grid_export', 'Експорт у мережу за день', 'entity'], ['e_day_load', 'Споживання дому за день', 'entity'],
@@ -1025,7 +1078,7 @@ function edSchema(fields) {
       { value: 'inverter', label: 'На блоці інвертора' }, { value: 'header', label: 'У шапці (з навантаженням)' },
       { value: 'both', label: 'І там, і там' }, { value: 'off', label: 'Не показувати' }] } } };
     if (t === 'flowstyle') return { name, selector: { select: { mode: 'dropdown', options: [
-      { value: 'comet', label: 'Комета (як раніше)' }, { value: 'dots', label: 'Крапки' }, { value: 'dash', label: 'Пунктир' },
+      { value: 'comet', label: 'Комета' }, { value: 'dots', label: 'Крапки' }, { value: 'dash', label: 'Пунктир' },
       { value: 'wave', label: 'Світлова хвиля' }, { value: 'arrows', label: 'Стрілки' }, { value: 'none', label: 'Без руху' }] } } };
     if (t === 'numf') return { name, selector: { number: { mode: 'box', min: 0.2, max: 4, step: 'any' } } };
     if (t === 'anim') return { name, selector: { select: { multiple: true, mode: 'list', options: [
@@ -1033,7 +1086,7 @@ function edSchema(fields) {
       { value: 'bus', label: 'Світловий потік по смужці (режим «Джерела»)' }, { value: 'battery', label: 'Живий край шкали АКБ при заряді/розряді' },
       { value: 'numbers', label: 'Плавна зміна чисел' }, { value: 'enter', label: 'Поява блоків при завантаженні' }] } } };
     if (t === 'busmode') return { name, selector: { select: { mode: 'dropdown', options: [
-      { value: 'sources', label: 'Джерела (як раніше)' }, { value: 'load', label: 'Завантаження інвертора' },
+      { value: 'sources', label: 'Джерела' }, { value: 'load', label: 'Завантаження інвертора' },
       { value: 'split', label: 'Звідки / куди' }, { value: 'temp', label: 'Температура' }] } } };
     return { name, selector: { select: { multiple: true, mode: 'list', options: [
       { value: 'pv', label: 'Сонце' }, { value: 'generator', label: 'Генератор' }, { value: 'grid', label: 'Мережа' }] } } };
@@ -1123,6 +1176,7 @@ class ZotacEnergyFlowCardEditor extends HTMLElement {
       r.appendChild(this._mkForm(fields));
     };
     sec('Датчики', ED.sensors, 'Обовʼязковий лише «Навантаження дому». Сонце можна не вказувати — блок не зʼявиться.');
+    sec('Сонячні рядки (MPPT)', ED.strings, 'Необовʼязково, до 4 рядків. Зʼявляються в блоці «Сонце»: потужність, смужка для порівняння рядків і напруга. Без загального сенсора сонця картка рахує суму рядків.');
     sec('Параметри', ED.options);
     const h = document.createElement('h3'); h.textContent = 'Додаткові показники (нижній ряд)'; r.appendChild(h);
     this._exBox = document.createElement('div'); r.appendChild(this._exBox);

@@ -11,7 +11,11 @@
 Підтримує **Modbus TCP** (пряме підключення) та **MQTT** (через брокер) протоколи.
 
 > [!NOTE]
-> ## 🆕 Що нового у 2.4
+> ## 🆕 Що нового у 2.5
+>
+> - ☀️ **Сонячні рядки (MPPT)** у блоці «Сонце»: до 4 рядків з потужністю, смужкою для порівняння (видно затінення) і напругою. Рядки `pv1`, `pv1_voltage`… у пресеті нижче.
+>
+> ### 2.4
 >
 > - 📊 **Енергія за сьогодні** у панелі: скільки сонце згенерувало, скільки взято з мережі й віддано в мережу (і за бажанням споживання дому, заряд/розряд АКБ). Добові лічильники інвертора, рядки `day_*` у пресеті нижче.
 > - 🩹 Заголовок картки тепер показує найпотужніше джерело: невеликий імпорт з мережі під час роботи від АКБ більше не дає «Живлення від мережі».
@@ -107,6 +111,11 @@ entities:
   generator: sensor.deye_sun_6k_generator_power
   generator_status: sensor.deye_sun_6k_generator_status
   pv: sensor.deye_sun_6k_pv_power
+  # Окремі MPPT-рядки (до 4), необовʼязково
+  pv1: sensor.deye_sun_6k_pv1_power
+  pv1_voltage: sensor.deye_sun_6k_pv1_voltage
+  pv2: sensor.deye_sun_6k_pv2_power
+  pv2_voltage: sensor.deye_sun_6k_pv2_voltage
   inverter_temp: sensor.deye_sun_6k_dc_temperature
   # Енергія за сьогодні (добові лічильники інвертора)
   day_pv: sensor.deye_sun_6k_day_pv_energy
